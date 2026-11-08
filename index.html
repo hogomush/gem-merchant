@@ -134,6 +134,17 @@ input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);ba
 #banner .bn{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:95;background:#120f19ee;border:1px solid var(--pc);border-left:5px solid var(--pc);padding:8px 14px;border-radius:12px;font-size:13px;display:flex;gap:6px;align-items:center;animation:bn .3s ease-out;max-width:92vw}
 @keyframes bn{from{transform:translate(-50%,-20px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 .toast{top:56px}
+
+.hold{display:grid;grid-template-columns:44px repeat(6,1fr);gap:4px 5px;align-items:center;margin-top:3px}
+.hold .hl{font-size:10px;color:var(--dim);white-space:nowrap}
+.ctile{height:22px;border-radius:3px;background:linear-gradient(160deg,color-mix(in srgb,var(--c) 75%,#fff),var(--c));color:var(--t);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,.45);box-shadow:inset 0 0 0 2px rgba(255,255,255,.25);position:relative}
+.ctile:after{content:'';position:absolute;top:2px;right:2px;width:5px;height:5px;transform:rotate(45deg);background:rgba(255,255,255,.7)}
+.ctok{width:22px;height:22px;justify-self:center;border-radius:50%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--c) 60%,#fff),var(--c) 60%,color-mix(in srgb,var(--c) 70%,#000));color:var(--t);font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;border:2px dashed rgba(255,255,255,.55)}
+.hold .zero{opacity:.22}
+.hold.big{grid-template-columns:48px repeat(6,1fr);gap:5px 6px}
+.hold.big .ctile{height:28px;font-size:15px}
+.hold.big .ctok{width:30px;height:30px;font-size:14px}
+.hold.big .hl{font-size:11px}
 </style>
 </head>
 <body>
@@ -618,6 +629,12 @@ function logHTML(l){
   const me=l.p===myId, col=pcol(l.p);
   return `<div class="${me?'mine':''}" style="--pc:${col}"><i class="dot" style="background:${col}"></i><b style="color:${col}">${esc(nameOf(l.p))}${me?' (나)':''}</b>${l.t.startsWith('에게')?'':' '}${esc(l.t)}</div>`;
 }
+function holdHTML(p,big){
+  const b=bonus(p);
+  const cards=C.map(c=>`<div class="ctile ${b[c]?'':'zero'}" style="--c:${CHEX[c]};--t:${CTXT[c]}"><span>${b[c]}</span></div>`).join('')+'<div></div>';
+  const toks=[...C,'y'].map(c=>`<div class="ctok ${p.tokens[c]?'':'zero'}" style="--c:${CHEX[c]};--t:${CTXT[c]}">${p.tokens[c]}</div>`).join('');
+  return `<div class="hold ${big?'big':''}"><div class="hl">🂠 카드</div>${cards}<div class="hl">● 보석</div>${toks}</div>`;
+}
 function render(){
   if(!G) return;
   if(G.status==='lobby') return renderLobby();
@@ -628,8 +645,7 @@ function render(){
     const p=G.ps[id]; const b=bonus(p);
     return `<div class="opp ${id===cur&&G.status==='playing'?'active':''}" data-pid="${id}" style="--pc:${pcol(id)}">
       <div class="opp-h"><span><i class="dot" style="background:${pcol(id)}"></i> ${esc(nameOf(id))} <span class="tiny">보석 ${tokTotal(p)} · 예약 ${p.reserved.length} · 귀족 ${p.nobles.length}</span></span><span class="pts">${points(p)}</span></div>
-      <div class="mini">${C.map(c=>`<span class="mc">${gemSVG(c,'mg-ic')}${b[c]}<span class="tiny">+${p.tokens[c]}</span></span>`).join('')}
-      <span class="mc">${gemSVG('y','mg-ic')}${p.tokens.y}</span></div></div>`;
+      ${holdHTML(p,false)}</div>`;
   }).join('');
   const myAfford = cid => me && isMyTurn() && payPlan(me,CARDS[cid]) ? 'can' : '';
   const tiers=[3,2,1].map(t=>`<div class="tier">
@@ -667,7 +683,7 @@ function render(){
     const canTake = isMyTurn() && pickValid();
     $('#panel').innerHTML = `<div class="me-panel" data-pid="${myId}" style="--pc:${pcol(myId)}"><div class="me-in">
       <div class="me-h"><b><i class="dot" style="background:${pcol(myId)}"></i> ${esc(nameOf(myId))} (나) <span class="tiny">보석 ${tokTotal(me)}/10 · 귀족 ${me.nobles.length}</span></b><span class="pts" style="font-size:20px">${points(me)}점</span></div>
-      <div class="me-gems">${[...C,'y'].map(c=>`<div class="mg" style="border-bottom:3px solid ${CHEX[c]}">${gemSVG(c,'mg-ic2')}<div class="t">${me.tokens[c]}</div><div class="b">${c==='y'?'황금':'카드 '+b[c]}</div></div>`).join('')}</div>
+      ${holdHTML(me,true)}
       ${me.reserved.length?`<div class="resv"><span class="tiny" style="align-self:center">예약</span>${me.reserved.map(cid=>cardHTML(cid,(isMyTurn()&&payPlan(me,CARDS[cid]))?'can':'','data-res')).join('')}</div>`:''}
       ${isMyTurn()&&picks.length?`<div class="actionbar"><button class="btn sec" id="clr">취소</button><button class="btn" id="take" ${canTake?'':'disabled'}>보석 가져오기</button></div>`:''}
     </div></div>`;
