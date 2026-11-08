@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>보석 상인 — 친구랑 하는 보석 카드 게임</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800&family=Cinzel:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#17131f; --panel:#221c2d; --panel2:#2c2539; --line:#3d3450; --text:#f3eee6; --dim:#a99fba;
+  --accent:#e8b923;
+  --w:#f4f1ea; --u:#2f6fd6; --g:#1f9d63; --r:#d6453d; --k:#3b3330; --y:#e8b923;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans KR',system-ui,sans-serif;font-size:14px}
+body{min-height:100vh;background:radial-gradient(ellipse at top,#2a2140 0%,var(--bg) 60%)}
+button{font-family:inherit;cursor:pointer}
+.wrap{max-width:520px;margin:0 auto;padding:10px 10px 140px}
+h1{font-family:'Cinzel',serif;font-size:28px;margin:18px 0 4px;text-align:center;letter-spacing:2px;color:var(--accent)}
+.sub{text-align:center;color:var(--dim);margin-bottom:18px}
+.card-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+label{display:block;color:var(--dim);font-size:12px;margin:0 0 6px}
+input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:16px;font-family:inherit}
+.btn{display:block;width:100%;padding:13px;border-radius:10px;border:0;font-size:15px;font-weight:700;background:var(--accent);color:#2a1d00;margin-top:10px}
+.btn.sec{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.btn:disabled{opacity:.4}
+.row{display:flex;gap:8px;align-items:center}
+.muted{color:var(--dim);font-size:12px}
+.err{color:#ff8f86;font-size:13px;margin-top:8px;min-height:1em}
+.code{font-family:'Cinzel',serif;font-size:34px;letter-spacing:8px;text-align:center;color:var(--accent);margin:6px 0}
+.plist div{padding:8px 10px;background:var(--panel2);border-radius:8px;margin-top:6px;display:flex;justify-content:space-between}
+
+/* game */
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.turn{font-weight:800;font-size:15px}
+.turn.me{color:var(--accent)}
+.tiny{font-size:11px;color:var(--dim)}
+.opps{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.opp{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 9px}
+.opp.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.opp-h{display:flex;justify-content:space-between;font-weight:700;margin-bottom:4px}
+.pts{color:var(--accent);font-family:'Cinzel',serif}
+.mini{display:flex;gap:4px;flex-wrap:wrap}
+.mc{display:flex;align-items:center;gap:2px;font-size:11px;background:var(--panel2);padding:2px 5px;border-radius:6px}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.35)}
+.nobles{display:flex;gap:6px;justify-content:center;margin-bottom:10px;flex-wrap:wrap}
+.noble{width:62px;height:62px;border-radius:8px;background:linear-gradient(145deg,#6b4f8a,#3c2b52);border:1px solid #8e74ad;padding:4px;position:relative}
+.noble .np{font-family:'Cinzel',serif;font-size:16px;color:#fff}
+.noble .nr{position:absolute;bottom:4px;left:4px;right:4px;display:flex;gap:2px}
+.req{width:15px;height:13px;border-radius:3px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.tier{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:5px}
+.deck{border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Cinzel',serif;color:#fff;aspect-ratio:3/4.1;border:1px solid rgba(255,255,255,.15)}
+.deck.t1{background:linear-gradient(145deg,#3c8a4d,#1f4a29)}
+.deck.t2{background:linear-gradient(145deg,#c9952c,#6b4b10)}
+.deck.t3{background:linear-gradient(145deg,#3b67b5,#1c2f5c)}
+.deck b{font-size:18px}.deck span{font-size:11px;opacity:.8}
+.deck.empty{opacity:.25}
+.gc{border-radius:8px;aspect-ratio:3/4.1;position:relative;padding:4px;border:1px solid rgba(0,0,0,.4);overflow:hidden;background:#ddd;color:#111}
+.gc.empty{background:transparent;border:1px dashed var(--line)}
+.gc .hd{display:flex;justify-content:space-between;align-items:flex-start;background:rgba(255,255,255,.55);margin:-4px -4px 0;padding:2px 4px;height:22px}
+.gc .p{font-family:'Cinzel',serif;font-size:17px;line-height:18px;color:#111}
+.gc .gem{width:16px;height:16px;transform:rotate(45deg);border-radius:3px;margin:2px 2px 0 0;border:1px solid rgba(0,0,0,.4)}
+.gc .cost{position:absolute;left:3px;bottom:3px;display:flex;flex-direction:column;gap:2px}
+.gc .cost.g2{display:grid;grid-template-columns:repeat(2,17px)}
+.cc{width:17px;height:17px;border-radius:50%;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,.4)}
+.gc.can{box-shadow:0 0 0 2px var(--accent)}
+.gc.sel{outline:3px solid #fff}
+.bank{display:flex;justify-content:space-between;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;margin:8px 0}
+.tok{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;color:var(--text);padding:0;position:relative}
+.chip{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;border:3px solid rgba(255,255,255,.25);box-shadow:inset 0 -3px 0 rgba(0,0,0,.25)}
+.tok .pick{position:absolute;top:-4px;right:2px;background:#fff;color:#000;border-radius:10px;font-size:11px;font-weight:800;padding:0 5px}
+.tok:disabled{opacity:.35}
+.log{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--dim);max-height:96px;overflow:auto}
+.log div{padding:1px 0}
+.me-panel{position:fixed;left:0;right:0;bottom:0;background:#120f19ee;backdrop-filter:blur(6px);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+.me-in{max-width:520px;margin:0 auto}
+.me-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.me-gems{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.mg{background:var(--panel2);border-radius:8px;padding:4px 2px;text-align:center;font-size:11px}
+.mg .t{font-weight:800;font-size:14px}
+.mg .b{color:var(--dim)}
+.resv{display:flex;gap:5px;margin-top:6px}
+.resv .gc{width:52px}
+.actionbar{display:flex;gap:6px;margin-top:6px}
+.actionbar .btn{margin:0;padding:10px}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+.sheet{background:var(--panel);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.sheet h3{margin:0 0 10px}
+.bigcard{width:120px;margin:0 auto 10px}
+.bigcard .gc{transform-origin:top}
+.winner{font-family:'Cinzel',serif;font-size:22px;color:var(--accent);text-align:center}
+.help li{margin-bottom:6px;color:var(--dim)}
+.toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#000c;padding:8px 14px;border-radius:20px;font-size:13px;z-index:60}
+.pill{font-size:11px;padding:2px 7px;border-radius:10px;background:var(--panel2);color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><h1>GEM MERCHANT</h1><div class="sub">불러오는 중…</div></div>
+<div id="panel"></div>
+<div id="modal"></div>
+<div id="toast"></div>
+
+<script>
+// ===================== 데이터 =====================
+const C = ['w','u','g','r','k'];            // 다이아, 사파이어, 에메랄드, 루비, 오닉스
+const CN = {w:'다이아',u:'사파이어',g:'에메랄드',r:'루비',k:'오닉스',y:'황금'};
+const CHEX = {w:'#f4f1ea',u:'#2f6fd6',g:'#1f9d63',r:'#d6453d',k:'#3b3330',y:'#e8b923'};
+const CTXT = {w:'#222',u:'#fff',g:'#fff',r:'#fff',k:'#fff',y:'#2a1d00'};
+const CBG = {w:'linear-gradient(160deg,#ffffff,#d9d4c7)',u:'linear-gradient(160deg,#6f9ef0,#244f9e)',g:'linear-gradient(160deg,#58c793,#16714a)',r:'linear-gradient(160deg,#f07b72,#9c2a23)',k:'linear-gradient(160deg,#7a6c66,#2a2321)'};
+
+// 카드 패턴: 오프셋(0=자기 색) → 개수, 점수
+const PAT = {
+ 1:[[{1:1,2:1,3:1,4:1},0],[{1:1,2:2,3:1,4:1},0],[{1:2,2:2,4:1},0],[{0:1,1:3,3:1},0],[{2:2,4:1},0],[{1:2,3:2},0],[{2:3},0],[{3:4},1]],
+ 2:[[{1:2,2:2,3:3},1],[{0:2,1:3,3:3},1],[{2:4,3:2,4:1},2],[{1:5,2:3},2],[{2:5},2],[{0:6},3]],
+ 3:[[{1:3,2:3,3:5,4:3},3],[{2:7},4],[{0:3,1:3,2:6},4],[{0:3,2:7},5]]
+};
+const CARDS = {};
+for (const t of [1,2,3]) {
+  let n=0;
+  C.forEach((col,ci)=>{
+    PAT[t].forEach(([pat,pts])=>{
+      const cost={};
+      for (const o in pat) cost[C[(ci+ +o)%5]] = pat[o];
+      CARDS[t+'-'+n] = {id:t+'-'+n, tier:t, color:col, pts, cost};
+      n++;
+    });
+  });
+}
+const NOBLES = {};
+C.forEach((c,i)=>{
+  NOBLES['n3-'+i] = {id:'n3-'+i, pts:3, req:{[c]:3,[C[(i+1)%5]]:3,[C[(i+2)%5]]:3}};
+  NOBLES['n4-'+i] = {id:'n4-'+i, pts:3, req:{[c]:4,[C[(i+2)%5]]:4}};
+});
+
+// ===================== 상태 =====================
+let room=null, G=null, unsub=null, loadTimer=null;
+let picks=[];           // 은행에서 고른 토큰
+let pending=null;       // 토큰 버리기 대기 상태
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const shuffle = a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const clone = o=>JSON.parse(JSON.stringify(o));
+function toast(m){const t=$('#toast');t.innerHTML='<div class="toast">'+esc(m)+'</div>';clearTimeout(toast._t);toast._t=setTimeout(()=>t.innerHTML='',2200)}
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+
+// ===================== 네트워크 (P2P: 방장 폰이 서버 역할) =====================
+const PFX='gemmerchant-v1-';
+let peer=null, conns=[], hostConn=null, isHost=false, DOC=null, docListeners=[], acks={}, active=false, netState='';
+const myId = lsGet('gm_uid') || (()=>{const v='p'+Math.random().toString(36).slice(2,10);lsSet('gm_uid',v);return v})();
+const myName = '';
+function mergeDeep(a,b){for(const k in b){if(b[k]&&typeof b[k]==='object'&&!Array.isArray(b[k])&&a[k]&&typeof a[k]==='object')mergeDeep(a[k],b[k]);else a[k]=b[k]}return a}
+function mkSnap(){ const d=DOC; return {exists:!!d, data:()=>d, metadata:{fromCache:false}}; }
+function emitDoc(){ docListeners.slice().forEach(f=>f(mkSnap())); }
+function setNet(s){ netState=s; const el=document.getElementById('net'); if(el) el.textContent=s; }
+function hostNetText(){ return '방장 · 친구 '+conns.filter(c=>c.open).length+'명 연결'; }
+function hostApply(m){
+  if(m.op==='set'){
+    if(DOC && m.data && DOC.v!==undefined && m.data.v!==DOC.v+1) return false;
+    DOC=m.data;
+  } else if(m.op==='update'){ if(!DOC) return false; mergeDeep(DOC,m.data); }
+  else if(m.op==='delete'){ DOC=null; }
+  else return false;
+  if(room){ if(DOC) lsSet('gm_doc_'+room, JSON.stringify(DOC)); else lsSet('gm_doc_'+room,''); }
+  conns.forEach(c=>{ if(c.open) c.send({type:'doc',doc:DOC}); });
+  emitDoc();
+  return true;
+}
+function send(m){
+  if(isHost){ return hostApply(clone(m)) ? Promise.resolve() : Promise.reject({message:'게임 상태가 바뀌었어요. 다시 시도해 주세요.'}); }
+  if(!hostConn || !hostConn.open) return Promise.reject({message:'방장과 연결이 끊겨 있어요'});
+  const rid=Math.random().toString(36).slice(2);
+  return new Promise((res,rej)=>{
+    acks[rid]={res,rej}; hostConn.send({...clone(m),rid});
+    setTimeout(()=>{ if(acks[rid]){ delete acks[rid]; rej({message:'응답이 없어요 (방장 연결 확인)'}); } },8000);
+  });
+}
+const db = { doc:()=>({
+  get: async()=>mkSnap(),
+  set: d=>send({op:'set',data:d}),
+  update: d=>send({op:'update',data:d}),
+  delete: ()=>send({op:'delete'}),
+  onSnapshot: (f)=>{ docListeners.push(f); setTimeout(()=>f(mkSnap()),0); return ()=>{ docListeners=docListeners.filter(x=>x!==f); }; }
+})};
+function leaveNet(){
+  active=false; docListeners=[]; DOC=null; conns=[]; hostConn=null; isHost=false;
+  if(peer){ try{peer.destroy()}catch(e){} peer=null; }
+}
+function startHost(code, initial){
+  leaveNet(); active=true; isHost=true; DOC=initial;
+  return new Promise((res,rej)=>{
+    let opened=false;
+    peer=new Peer(PFX+code);
+    peer.on('open',()=>{ opened=true; setNet(hostNetText()); res(); });
+    peer.on('error',e=>{ if(!opened){ leaveNet(); rej(e); } else setNet('연결 문제: '+e.type); });
+    peer.on('disconnected',()=>{ if(active){ setNet('서버 재연결 중…'); try{peer.reconnect()}catch(e){} } });
+    peer.on('connection',c=>{
+      c.on('open',()=>{ conns.push(c); c.send({type:'doc',doc:DOC}); setNet(hostNetText()); });
+      c.on('data',m=>{ if(m && m.op){ const ok=hostApply(m); c.send({type:'ack',rid:m.rid,ok}); } });
+      c.on('close',()=>{ conns=conns.filter(x=>x!==c); setNet(hostNetText()); });
+      c.on('error',()=>{});
+    });
+  });
+}
+function startClient(code){
+  leaveNet(); active=true; isHost=false;
+  return new Promise((res,rej)=>{
+    let first=true, timer;
+    const fail=msg=>{ if(first){ first=false; clearTimeout(timer); leaveNet(); rej(new Error(msg)); } };
+    timer=setTimeout(()=>fail('연결 시간이 초과됐어요. 방 코드와 방장 접속 상태를 확인해 주세요.'),15000);
+    peer=new Peer();
+    function connect(){
+      if(!active||!peer||peer.destroyed) return;
+      const c=peer.connect(PFX+code,{reliable:true}); hostConn=c;
+      c.on('open',()=>setNet('연결됨'));
+      c.on('data',m=>{
+        if(m.type==='doc'){ DOC=m.doc; emitDoc(); if(first){ first=false; clearTimeout(timer); res(); } }
+        else if(m.type==='ack' && acks[m.rid]){ const a=acks[m.rid]; delete acks[m.rid]; m.ok?a.res():a.rej({message:'게임 상태가 바뀌었어요. 다시 시도해 주세요.'}); }
+      });
+      c.on('close',()=>{ if(active && hostConn===c){ setNet('방장과 재연결 중…'); setTimeout(connect,3000); } });
+      c.on('error',()=>{});
+    }
+    peer.on('open',connect);
+    peer.on('error',e=>{
+      if(e.type==='peer-unavailable'){ if(first) fail('그런 방이 없거나 방장이 접속해 있지 않아요.'); else { setNet('방장 기다리는 중…'); setTimeout(connect,4000); } }
+      else if(first) fail('연결 실패 ('+e.type+')');
+    });
+    peer.on('disconnected',()=>{ if(active){ try{peer.reconnect()}catch(e){} } });
+  });
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && peer && peer.disconnected && active){ try{peer.reconnect()}catch(e){} } });
+
+// ===================== 홈 / 로비 =====================
+function renderHome(err){
+  stopListen(); leaveNet(); G=null; room=null; $('#panel').innerHTML='';
+  const nick = lsGet('gm_nick') || '';
+  const last = lsGet('gm_room') || '';
+  $('#app').innerHTML = `
+    <h1>GEM MERCHANT</h1><div class="sub">보석을 모으고, 광산을 사고, 귀족을 맞이하세요 · 2~4인</div>
+    <div class="card-box">
+      <label>내 닉네임</label><input id="nick" maxlength="10" value="${esc(nick)}" placeholder="예: 철수">
+      <button class="btn" id="mk">새 방 만들기 (내가 방장)</button>
+    </div>
+    <div class="card-box">
+      <label>방 코드로 참가</label>
+      <input id="code" maxlength="4" value="${esc(last)}" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:6px;text-align:center">
+      <button class="btn sec" id="jn">참가하기</button>
+      <div class="err">${esc(err||'')}</div>
+    </div>
+    <div class="card-box help"><b>규칙 요약</b><ul>
+      <li>내 차례엔 아래 중 <b>하나</b>만: ① 서로 다른 색 보석 3개 ② 같은 색 2개(그 더미가 4개 이상일 때) ③ 카드 1장 예약 + 황금 1개 ④ 카드 구매</li>
+      <li>산 카드는 그 색 보석 1개로 계속 할인해 줘요. 황금은 아무 색으로나 쓸 수 있어요.</li>
+      <li>보석은 최대 10개, 예약은 최대 3장. 할인 조건을 채우면 귀족이 찾아와 3점을 줘요.</li>
+      <li>누군가 <b>15점</b>을 넘기면 그 라운드까지 하고 끝! 동점이면 카드를 적게 산 사람이 승리.</li>
+      <li>방장 폰이 게임 서버 역할을 해요. 게임 중엔 방장이 이 화면을 계속 켜 두세요.</li>
+    </ul></div>`;
+  $('#mk').onclick = ()=>createRoom();
+  $('#jn').onclick = ()=>joinRoom($('#code').value.trim().toUpperCase());
+}
+function getNick(){
+  const n = ($('#nick')?.value || lsGet('gm_nick') || '플레이어').trim().slice(0,10) || '플레이어';
+  lsSet('gm_nick', n); return n;
+}
+function busy(msg){ $('#app').innerHTML = '<h1>GEM MERCHANT</h1><div class="sub">'+esc(msg)+'</div>'; }
+async function createRoom(){
+  const nick=getNick();
+  const L='ABCDEFGHJKLMNPQRSTUVWXYZ';
+  busy('방 만드는 중…');
+  for(let tries=0;tries<4;tries++){
+    let code=''; for(let i=0;i<4;i++) code+=L[Math.floor(Math.random()*L.length)];
+    const data = {code, host:myId, status:'lobby', v:1, created:Date.now(), players:{[myId]:{name:nick, joined:Date.now()}}};
+    try{ room=code; await startHost(code, data); lsSet('gm_doc_'+code, JSON.stringify(data)); lsSet('gm_hostof', code); return enterRoom(code); }
+    catch(e){ room=null; if(e.type!=='unavailable-id') return renderHome('방 만들기 실패: 인터넷 연결을 확인해 주세요 ('+(e.type||e.message)+')'); }
+  }
+  renderHome('방 코드를 만들지 못했어요. 다시 시도해 주세요.');
+}
+async function joinRoom(code){
+  if(!/^[A-Z]{4}$/.test(code)) return renderHome('4글자 방 코드를 입력해 주세요.');
+  const nick=getNick();
+  // 내가 방장이었던 방이면 저장된 게임으로 다시 열기
+  const saved = lsGet('gm_doc_'+code);
+  if(saved && lsGet('gm_hostof')===code){
+    busy('내 방을 다시 여는 중…');
+    try{ room=code; await startHost(code, JSON.parse(saved)); return enterRoom(code); }
+    catch(e){ room=null; if(e.type==='unavailable-id') return renderHome('잠시 후 다시 시도해 주세요 (이전 연결이 아직 남아 있어요).'); return renderHome('방 다시 열기 실패 ('+(e.type||e.message)+')'); }
+  }
+  busy('방장에게 연결 중…');
+  try{ room=code; await startClient(code); }catch(e){ room=null; return renderHome(e.message); }
+  const d = DOC;
+  if(!d){ return renderHome('그런 방이 없어요.'); }
+  if(!d.players?.[myId]){
+    if(d.status!=='lobby') return renderHome('이미 시작한 게임이에요.');
+    if(Object.keys(d.players||{}).length>=4) return renderHome('방이 꽉 찼어요 (최대 4명).');
+    try{ await db.doc().update({players:{[myId]:{name:nick, joined:Date.now()}}}); }
+    catch(e){ return renderHome('참가 실패: '+e.message); }
+  }
+  enterRoom(code);
+}
+function stopListen(){ if(unsub){unsub();unsub=null} clearTimeout(loadTimer); }
+function enterRoom(code){
+  stopListen(); room=code; lsSet('gm_room',code); picks=[]; pending=null;
+  unsub = db.doc().onSnapshot(s=>{
+    if(!s.exists){ renderHome('방이 닫혔어요.'); return; }
+    const d=s.data();
+    const prevTurn = G?.turn;
+    G = clone(d);
+    if(G.status==='playing' && prevTurn!==G.turn && curId()===myId && prevTurn!==undefined){ toast('내 차례예요!'); picks=[]; }
+    render();
+  });
+}
+function playersSorted(){ return Object.entries(G.players||{}).sort((a,b)=>a[1].joined-b[1].joined).map(x=>x[0]); }
+function nameOf(id){ return G.players?.[id]?.name || '플레이어'; }
+
+function renderLobby(){
+  $('#panel').innerHTML='';
+  const ids = playersSorted();
+  const host = G.host===myId;
+  $('#app').innerHTML = `
+    <h1>GEM MERCHANT</h1>
+    <div class="card-box" style="text-align:center">
+      <div class="muted">친구에게 이 코드를 알려 주세요</div>
+      <div class="code">${esc(G.code)}</div>
+      <button class="btn sec" id="cp" style="margin-top:4px">코드 복사</button>
+    </div>
+    <div class="card-box"><b>참가자 ${ids.length}/4</b> <span class="tiny" id="net">${esc(netState)}</span>
+      <div class="plist">${ids.map(id=>`<div><span>${esc(nameOf(id))}${id===myId?' (나)':''}</span><span class="pill">${id===G.host?'방장':'대기'}</span></div>`).join('')}</div>
+      ${host ? `<button class="btn" id="st" ${ids.length<2?'disabled':''}>게임 시작</button>
+        <div class="muted" style="margin-top:6px">${ids.length<2?'2명 이상 모이면 시작할 수 있어요.':''}</div>`
+             : `<div class="muted" style="margin-top:10px">방장이 시작하기를 기다리는 중…</div>`}
+      ${host?'<div class="muted" style="margin-top:8px">⚠️ 당신 폰이 게임 서버예요. 게임이 끝날 때까지 이 화면을 켜 두세요. (나가면 방이 닫혀요)</div>':''}
+      <button class="btn sec" id="lv">나가기</button>
+    </div>`;
+  $('#cp').onclick = async()=>{ try{ await navigator.clipboard.writeText(G.code); toast('복사했어요'); }catch(e){ toast('코드: '+G.code) } };
+  $('#lv').onclick = ()=>leaveLobby();
+  if(host && $('#st')) $('#st').onclick = ()=>startGame();
+}
+async function leaveLobby(){
+  if(G.status==='lobby' && G.players[myId]){
+    const p = clone(G.players); delete p[myId];
+    const ref = db.doc('games/'+room);
+    try{
+      if(isHost){ await ref.delete(); lsSet('gm_hostof',''); }
+      else if(Object.keys(p).length===0) await ref.delete();
+      else { const d=clone(G); d.players=p; if(d.host===myId) d.host=playersSortedFrom(p)[0]; d.v++; await ref.set(d); }
+    }catch(e){}
+  }
+  lsSet('gm_room',''); renderHome();
+}
+function playersSortedFrom(p){ return Object.entries(p).sort((a,b)=>a[1].joined-b[1].joined).map(x=>x[0]); }
+
+async function startGame(){
+  const ref = db.doc('games/'+room);
+  const s = await ref.get(); const d = clone(s.data());
+  const ids = shuffle(playersSortedFrom(d.players));
+  const n = ids.length; const t = n===2?4:n===3?5:7;
+  const decks={}, board={};
+  for(const tr of [1,2,3]){
+    const all = shuffle(Object.keys(CARDS).filter(k=>CARDS[k].tier===tr));
+    board[tr] = all.splice(0,4); decks[tr]=all;
+  }
+  Object.assign(d,{
+    status:'playing', order:ids, turn:0, round:1, decks, board,
+    nobles: shuffle(Object.keys(NOBLES)).slice(0,n+1),
+    bank:{w:t,u:t,g:t,r:t,k:t,y:5},
+    ps: Object.fromEntries(ids.map(id=>[id,{tokens:{w:0,u:0,g:0,r:0,k:0,y:0},cards:[],reserved:[],nobles:[]}])),
+    log:['게임 시작! 첫 차례: '+d.players[ids[0]].name], finalRound:false, v:d.v+1
+  });
+  try{ await ref.set(d); }catch(e){ toast('시작 실패: '+e.message) }
+}
+
+// ===================== 게임 로직 =====================
+const curId = ()=>G.order[G.turn];
+const isMyTurn = ()=>G.status==='playing' && curId()===myId && !pending;
+function bonus(p){ const b={w:0,u:0,g:0,r:0,k:0}; p.cards.forEach(c=>b[CARDS[c].color]++); return b; }
+function points(p){ return p.cards.reduce((s,c)=>s+CARDS[c].pts,0) + p.nobles.length*3; }
+function tokTotal(p){ return Object.values(p.tokens).reduce((a,b)=>a+b,0); }
+function payPlan(p, card){
+  const b=bonus(p); const pay={w:0,u:0,g:0,r:0,k:0,y:0}; let gold=0;
+  for(const c of C){
+    const need=Math.max(0,(card.cost[c]||0)-b[c]);
+    const use=Math.min(need,p.tokens[c]); pay[c]=use; gold+=need-use;
+  }
+  if(gold>p.tokens.y) return null;
+  pay.y=gold; return pay;
+}
+function addLog(d,msg){ d.log=(d.log||[]).concat(msg).slice(-25); }
+
+function finishTurn(d){
+  const id = d.order[d.turn]; const p = d.ps[id];
+  // 귀족 방문
+  const b=bonus(p);
+  const nb = d.nobles.find(n=>Object.entries(NOBLES[n].req).every(([c,v])=>b[c]>=v));
+  if(nb){ d.nobles=d.nobles.filter(x=>x!==nb); p.nobles.push(nb); addLog(d, d.players[id].name+'에게 귀족이 방문! (+3점)'); }
+  if(points(p)>=15 && !d.finalRound){ d.finalRound=true; addLog(d, d.players[id].name+' 15점 달성! 이번 라운드가 마지막이에요.'); }
+  d.turn=(d.turn+1)%d.order.length;
+  if(d.turn===0){
+    if(d.finalRound){
+      d.status='ended';
+      const rank = d.order.slice().sort((a,b)=>(points(d.ps[b])-points(d.ps[a]))||(d.ps[a].cards.length-d.ps[b].cards.length));
+      d.rank=rank; addLog(d,'게임 종료! 우승: '+d.players[rank[0]].name);
+    } else d.round++;
+  }
+  d.v=(d.v||0)+1;
+}
+async function commit(d){
+  const ref=db.doc('games/'+room);
+  try{
+    const s=await ref.get(); const cur=s.data();
+    if(!cur || cur.v!==G.v || cur.order[cur.turn]!==myId){ toast('게임 상태가 바뀌었어요. 다시 시도해 주세요.'); return; }
+    await ref.set(d);
+  }catch(e){ toast('전송 실패: '+(e.message||e.code)); }
+}
+// 행동을 적용 → 10개 초과면 버리기 화면 → 커밋
+function afterAction(d){
+  picks=[]; closeModal();
+  const p=d.ps[myId];
+  if(tokTotal(p)>10){ pending={d, back:{w:0,u:0,g:0,r:0,k:0,y:0}}; render(); openDiscard(); return; }
+  finishTurn(d); commit(d);
+}
+function doTake(){
+  const d=clone(G); const p=d.ps[myId];
+  const cnt={}; picks.forEach(c=>cnt[c]=(cnt[c]||0)+1);
+  for(const c in cnt){ d.bank[c]-=cnt[c]; p.tokens[c]+=cnt[c]; }
+  addLog(d, nameOf(myId)+': 보석 '+picks.map(c=>CN[c]).join(', ')+' 가져감');
+  afterAction(d);
+}
+function doBuy(cid, from){
+  const d=clone(G); const p=d.ps[myId]; const card=CARDS[cid];
+  const pay=payPlan(p,card); if(!pay) return toast('보석이 부족해요');
+  for(const c in pay){ p.tokens[c]-=pay[c]; d.bank[c]+=pay[c]; }
+  if(from==='res') p.reserved=p.reserved.filter(x=>x!==cid);
+  else replaceOnBoard(d,cid);
+  p.cards.push(cid);
+  addLog(d, nameOf(myId)+': '+CN[card.color]+' 카드 구매'+(card.pts?` (+${card.pts}점)`:''));
+  afterAction(d);
+}
+function doReserve(cid){ // cid = 카드 id 또는 'deck-1'
+  const d=clone(G); const p=d.ps[myId];
+  if(p.reserved.length>=3) return toast('예약은 최대 3장이에요');
+  let id=cid, txt;
+  if(cid.startsWith('deck-')){ const t=cid.slice(5); id=d.decks[t].pop(); if(!id) return toast('덱이 비었어요'); txt=`${t}단계 덱 맨 위 카드`; }
+  else { replaceOnBoard(d,cid); txt=CN[CARDS[cid].color]+' 카드'; }
+  p.reserved.push(id);
+  if(d.bank.y>0){ d.bank.y--; p.tokens.y++; }
+  addLog(d, nameOf(myId)+': '+txt+' 예약');
+  afterAction(d);
+}
+function replaceOnBoard(d,cid){
+  const t=CARDS[cid].tier; const i=d.board[t].indexOf(cid);
+  d.board[t][i] = d.decks[t].length ? d.decks[t].pop() : null;
+}
+function availColors(){ return C.filter(c=>G.bank[c]>0).length; }
+function pickValid(){
+  if(!picks.length) return false;
+  if(picks.length===2 && picks[0]===picks[1]) return true;
+  const uniq=new Set(picks).size===picks.length;
+  return uniq && picks.length===Math.min(3,availColors());
+}
+function tapToken(c){
+  if(!isMyTurn()||c==='y') return;
+  const same = picks.filter(x=>x===c).length;
+  if(same===1 && picks.length===1){ if(G.bank[c]>=4) picks.push(c); else { toast('같은 색 2개는 더미가 4개 이상일 때만 가능해요'); picks=[]; } }
+  else if(same>=1){ picks=picks.filter(x=>x!==c); }
+  else if(picks.length===2 && picks[0]===picks[1]){ picks=[c]; }
+  else if(picks.length<3 && G.bank[c]>0) picks.push(c);
+  render();
+}
+
+// ===================== 그리기 =====================
+function cardHTML(cid, extra=''){
+  if(!cid) return `<div class="gc empty"></div>`;
+  const c=CARDS[cid];
+  const costs=C.filter(k=>c.cost[k]).map(k=>`<div class="cc" style="background:${CHEX[k]};color:${CTXT[k]}">${c.cost[k]}</div>`).join('');
+  return `<div class="gc ${extra}" data-card="${cid}" style="background:${CBG[c.color]}">
+    <div class="hd"><span class="p">${c.pts||''}</span><span class="gem" style="background:${CHEX[c.color]}"></span></div>
+    <div class="cost ${Object.keys(c.cost).length>3?'g2':''}">${costs}</div></div>`;
+}
+function nobleHTML(nid){
+  const n=NOBLES[nid];
+  return `<div class="noble"><div class="np">${n.pts}</div><div class="nr">${Object.entries(n.req).map(([c,v])=>`<div class="req" style="background:${CHEX[c]};color:${CTXT[c]}">${v}</div>`).join('')}</div></div>`;
+}
+function render(){
+  if(!G) return;
+  if(G.status==='lobby') return renderLobby();
+  const me=G.ps[myId]; const spectator=!me;
+  const cur=curId();
+  const turnTxt = G.status==='ended' ? '게임 종료' : (cur===myId ? '내 차례!' : esc(nameOf(cur))+'의 차례');
+  const opps = G.order.filter(id=>id!==myId).map(id=>{
+    const p=G.ps[id]; const b=bonus(p);
+    return `<div class="opp ${id===cur&&G.status==='playing'?'active':''}">
+      <div class="opp-h"><span>${esc(nameOf(id))} <span class="tiny">보석 ${tokTotal(p)} · 예약 ${p.reserved.length} · 귀족 ${p.nobles.length}</span></span><span class="pts">${points(p)}</span></div>
+      <div class="mini">${C.map(c=>`<span class="mc"><i class="dot" style="background:${CHEX[c]}"></i>${b[c]}<span class="tiny">+${p.tokens[c]}</span></span>`).join('')}
+      <span class="mc"><i class="dot" style="background:${CHEX.y}"></i>${p.tokens.y}</span></div></div>`;
+  }).join('');
+  const myAfford = cid => me && isMyTurn() && payPlan(me,CARDS[cid]) ? 'can' : '';
+  const tiers=[3,2,1].map(t=>`<div class="tier">
+      <div class="deck t${t} ${G.decks[t].length?'':'empty'}" data-deck="${t}"><b>${'Ⅰ Ⅱ Ⅲ'.split(' ')[t-1]}</b><span>${G.decks[t].length}장</span></div>
+      ${G.board[t].map(cid=>cardHTML(cid, cid?myAfford(cid):'')).join('')}</div>`).join('');
+  const bank=[...C,'y'].map(c=>{
+    const n=picks.filter(x=>x===c).length;
+    return `<button class="tok" data-tok="${c}" ${(!isMyTurn()||c==='y'||(!G.bank[c]&&!n))?'disabled':''}>
+      <div class="chip" style="background:${CHEX[c]};color:${CTXT[c]}">${G.bank[c]-n}</div>
+      <span class="tiny">${CN[c]}</span>${n?`<span class="pick">+${n}</span>`:''}</button>`;
+  }).join('');
+
+  let endBox='';
+  if(G.status==='ended'){
+    endBox=`<div class="card-box"><div class="winner">🏆 ${esc(nameOf(G.rank[0]))} 우승!</div>
+      ${G.rank.map((id,i)=>`<div class="row" style="justify-content:space-between;margin-top:6px"><span>${i+1}. ${esc(nameOf(id))}</span><span class="tiny">${points(G.ps[id])}점 · 카드 ${G.ps[id].cards.length}장</span></div>`).join('')}
+      ${G.host===myId?'<button class="btn" id="again">같은 멤버로 다시 하기</button>':'<div class="muted" style="margin-top:8px">방장이 다시 시작할 수 있어요.</div>'}
+      <button class="btn sec" id="home">처음으로</button></div>`;
+  }
+
+  $('#app').innerHTML = `
+    <div class="topbar"><div><div class="turn ${cur===myId&&G.status==='playing'?'me':''}">${turnTxt}</div>
+      <div class="tiny">방 ${esc(G.code)} · <span id="net">${esc(netState)}</span> · ${G.round}라운드${G.finalRound&&G.status==='playing'?' · <b style="color:var(--accent)">마지막 라운드</b>':''}</div></div>
+      <button class="btn sec" id="menu" style="width:auto;margin:0;padding:7px 12px">메뉴</button></div>
+    ${endBox}
+    <div class="opps">${opps}</div>
+    <div class="nobles">${G.nobles.map(nobleHTML).join('')}</div>
+    ${tiers}
+    <div class="bank">${bank}</div>
+    <div class="log">${(G.log||[]).slice().reverse().map(l=>`<div>${esc(l)}</div>`).join('')}</div>`;
+
+  // 내 패널
+  if(spectator){ $('#panel').innerHTML=''; }
+  else {
+    const b=bonus(me);
+    const canTake = isMyTurn() && pickValid();
+    $('#panel').innerHTML = `<div class="me-panel"><div class="me-in">
+      <div class="me-h"><b>${esc(nameOf(myId))} (나) <span class="tiny">보석 ${tokTotal(me)}/10 · 귀족 ${me.nobles.length}</span></b><span class="pts" style="font-size:20px">${points(me)}점</span></div>
+      <div class="me-gems">${[...C,'y'].map(c=>`<div class="mg" style="border-bottom:3px solid ${CHEX[c]}"><div class="t">${me.tokens[c]}</div><div class="b">${c==='y'?'황금':'카드 '+b[c]}</div></div>`).join('')}</div>
+      ${me.reserved.length?`<div class="resv"><span class="tiny" style="align-self:center">예약</span>${me.reserved.map(cid=>cardHTML(cid,(isMyTurn()&&payPlan(me,CARDS[cid]))?'can':'').replace('data-card','data-res')).join('')}</div>`:''}
+      ${isMyTurn()&&picks.length?`<div class="actionbar"><button class="btn sec" id="clr">취소</button><button class="btn" id="take" ${canTake?'':'disabled'}>보석 가져오기</button></div>`:''}
+    </div></div>`;
+    const h=$('.me-panel').offsetHeight; $('#app').style.paddingBottom=(h+20)+'px';
+  }
+  bind();
+}
+function bind(){
+  document.querySelectorAll('[data-tok]').forEach(el=>el.onclick=()=>tapToken(el.dataset.tok));
+  document.querySelectorAll('#app [data-card]').forEach(el=>el.onclick=()=>openCard(el.dataset.card,'board'));
+  document.querySelectorAll('[data-res]').forEach(el=>el.onclick=()=>openCard(el.dataset.res,'res'));
+  document.querySelectorAll('[data-deck]').forEach(el=>el.onclick=()=>openDeck(el.dataset.deck));
+  $('#take') && ($('#take').onclick=doTake);
+  $('#clr') && ($('#clr').onclick=()=>{picks=[];render()});
+  $('#menu') && ($('#menu').onclick=openMenu);
+  $('#home') && ($('#home').onclick=()=>{lsSet('gm_room','');renderHome()});
+  $('#again') && ($('#again').onclick=restart);
+}
+
+// ===================== 모달 =====================
+function openModal(html){ $('#modal').innerHTML=`<div class="sheet-bg" id="bg"><div class="sheet">${html}</div></div>`; $('#bg').onclick=e=>{ if(e.target.id==='bg' && !pending) closeModal(); }; }
+function closeModal(){ $('#modal').innerHTML=''; }
+function openCard(cid, from){
+  const c=CARDS[cid]; const me=G.ps[myId];
+  const my=isMyTurn() && me;
+  const pay = me ? payPlan(me,c) : null;
+  const payTxt = pay ? Object.entries(pay).filter(([k,v])=>v).map(([k,v])=>`${CN[k]} ${v}`).join(', ') || '무료 (할인으로 충분!)' : '';
+  openModal(`<h3>${CN[c.color]} 광산 · ${c.pts}점</h3>
+    <div class="bigcard">${cardHTML(cid)}</div>
+    <div class="muted" style="text-align:center">비용: ${C.filter(k=>c.cost[k]).map(k=>CN[k]+' '+c.cost[k]).join(', ')}</div>
+    ${my ? (pay?`<div class="muted" style="text-align:center;margin-top:4px">지불: ${payTxt}</div>`:`<div class="err" style="text-align:center">보석이 부족해요</div>`) : `<div class="muted" style="text-align:center;margin-top:6px">${G.status==='playing'?'내 차례가 아니에요':''}</div>`}
+    ${my?`<button class="btn" id="buy" ${pay?'':'disabled'}>구매하기</button>`:''}
+    ${my&&from==='board'?`<button class="btn sec" id="rsv" ${me.reserved.length>=3?'disabled':''}>예약하기 ${G.bank.y?'(+황금 1)':''}</button>`:''}
+    <button class="btn sec" id="cl">닫기</button>`);
+  $('#cl').onclick=closeModal;
+  $('#buy') && ($('#buy').onclick=()=>doBuy(cid,from));
+  $('#rsv') && ($('#rsv').onclick=()=>doReserve(cid));
+}
+function openDeck(t){
+  const me=G.ps[myId];
+  if(!isMyTurn()) return toast(`${t}단계 덱: ${G.decks[t].length}장 남음`);
+  if(!G.decks[t].length) return toast('덱이 비었어요');
+  openModal(`<h3>${t}단계 덱 (${G.decks[t].length}장)</h3><p class="muted">덱 맨 위 카드를 보지 않고 예약해요. 다른 사람은 무슨 카드인지 몰라요.</p>
+    <button class="btn" id="rsv" ${me.reserved.length>=3?'disabled':''}>덱에서 예약하기 ${G.bank.y?'(+황금 1)':''}</button><button class="btn sec" id="cl">닫기</button>`);
+  $('#cl').onclick=closeModal; $('#rsv').onclick=()=>doReserve('deck-'+t);
+}
+function openDiscard(){
+  const {d,back}=pending; const p=d.ps[myId];
+  const total=tokTotal(p)-Object.values(back).reduce((a,b)=>a+b,0);
+  const over=total-10;
+  openModal(`<h3>보석이 너무 많아요</h3><p class="muted">10개가 되도록 <b>${Math.max(over,0)}개</b>를 더 돌려놓아 주세요. (탭해서 선택)</p>
+    <div class="bank" style="background:var(--panel2)">${[...C,'y'].map(c=>{const left=p.tokens[c]-back[c];return `<button class="tok" data-dc="${c}" ${left<=0||over<=0?'disabled':''}><div class="chip" style="background:${CHEX[c]};color:${CTXT[c]}">${left}</div><span class="tiny">${CN[c]}</span>${back[c]?`<span class="pick">-${back[c]}</span>`:''}</button>`}).join('')}</div>
+    <div class="actionbar"><button class="btn sec" id="rs">다시 고르기</button><button class="btn" id="ok" ${over===0?'':'disabled'}>확정</button></div>`);
+  document.querySelectorAll('[data-dc]').forEach(el=>el.onclick=()=>{back[el.dataset.dc]++;openDiscard()});
+  $('#rs').onclick=()=>{for(const k in back)back[k]=0;openDiscard()};
+  $('#ok').onclick=()=>{
+    for(const c in back){ p.tokens[c]-=back[c]; d.bank[c]+=back[c]; }
+    const n=Object.values(back).reduce((a,b)=>a+b,0);
+    addLog(d, nameOf(myId)+': 보석 '+n+'개 반납');
+    pending=null; closeModal(); finishTurn(d); commit(d);
+  };
+}
+function openMenu(){
+  const host=G.host===myId;
+  openModal(`<h3>메뉴</h3>
+    <div class="muted">방 코드: <b style="color:var(--accent)">${esc(G.code)}</b></div>
+    <div class="help"><ul>
+      <li>보석 칩을 탭해 고르고 <b>보석 가져오기</b>를 누르세요. 같은 색을 두 번 탭하면 2개.</li>
+      <li>카드를 탭하면 구매/예약. 금색 테두리 = 지금 살 수 있는 카드.</li>
+      <li>덱(Ⅰ Ⅱ Ⅲ)을 탭하면 맨 위 카드를 몰래 예약.</li>
+      <li>상대 줄의 숫자: 카드 할인 수 +보유 보석 수.</li></ul></div>
+    ${host&&G.status==='playing'?'<button class="btn sec" id="skip">현재 차례 건너뛰기 (자리 비움)</button><button class="btn sec" id="rst">게임 다시 시작</button>':''}
+    <button class="btn sec" id="out">${isHost?'방 나가기 (같은 폰에서 코드로 다시 열 수 있어요)':'방 나가기 (코드로 다시 참가 가능)'}</button>
+    <button class="btn" id="cl">닫기</button>`);
+  $('#cl').onclick=closeModal;
+  $('#out').onclick=()=>{closeModal();renderHome()};
+  $('#skip')&&($('#skip').onclick=async()=>{const d=clone(G);addLog(d,nameOf(curId())+' 차례 건너뜀');finishTurn(d);closeModal();try{await db.doc('games/'+room).set(d)}catch(e){toast(e.message)}});
+  $('#rst')&&($('#rst').onclick=()=>{closeModal();restart()});
+}
+async function restart(){
+  const d=clone(G);
+  const keep={code:d.code,host:d.host,status:'lobby',v:(d.v||0)+1,created:Date.now(),players:d.players};
+  try{ await db.doc('games/'+room).set(keep); }catch(e){ toast(e.message) }
+}
+
+if(typeof Peer==='undefined'){ $('#app').innerHTML='<h1>GEM MERCHANT</h1><div class="card-box">연결 모듈을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.</div>'; }
+else renderHome();
+</script>
+</body>
+</html>
