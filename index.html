@@ -145,6 +145,20 @@ input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);ba
 .hold.big .ctile{height:28px;font-size:15px}
 .hold.big .ctok{width:30px;height:30px;font-size:14px}
 .hold.big .hl{font-size:11px}
+
+.mode{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 6px;display:flex;flex-direction:column;gap:2px;align-items:center}
+.mode b{font-size:18px;font-family:'Cinzel',serif}.mode span{font-size:11px;color:var(--dim)}
+.mode.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;background:#3a2f1a}
+.mode:disabled{opacity:1}.mode:disabled:not(.on){opacity:.45}
+.order{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px}
+.oc{padding:2px 8px;border-radius:10px;border:1px solid var(--pc);color:var(--pc)}
+.oc.on{background:var(--pc);color:#120f19;font-weight:800}
+.order-pop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;display:flex;align-items:center;justify-content:center;animation:bn .25s}
+.op-in{background:var(--panel);border:1px solid var(--accent);border-radius:16px;padding:20px 26px;min-width:220px;text-align:center}
+.op-t{font-size:20px;font-weight:800;color:var(--accent);margin-bottom:10px}
+.op-r{font-size:17px;padding:6px 10px;margin-top:6px;border-radius:10px;border-left:5px solid var(--pc);background:var(--panel2);text-align:left;animation:opr .45s both}
+.op-r b{color:var(--pc);margin-right:6px}
+@keyframes opr{from{transform:translateX(-30px) scale(.9);opacity:0}to{transform:none;opacity:1}}
 </style>
 </head>
 <body>
@@ -192,7 +206,8 @@ let picks=[];           // 은행에서 고른 토큰
 let pending=null;       // 토큰 버리기 대기 상태
 const $ = s=>document.querySelector(s);
 const esc = s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const shuffle = a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const rnd = n=>{try{const u=new Uint32Array(1);crypto.getRandomValues(u);return u[0]%n}catch(e){return Math.floor(Math.random()*n)}};
+const shuffle = a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
 const clone = o=>JSON.parse(JSON.stringify(o));
 function toast(m){const t=$('#toast');t.innerHTML='<div class="toast">'+esc(m)+'</div>';clearTimeout(toast._t);toast._t=setTimeout(()=>t.innerHTML='',2200)}
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -305,7 +320,7 @@ function renderHome(err){
       <li>내 차례엔 아래 중 <b>하나</b>만: ① 서로 다른 색 보석 3개 ② 같은 색 2개(그 더미가 4개 이상일 때) ③ 카드 1장 예약 + 황금 1개 ④ 카드 구매</li>
       <li>산 카드는 그 색 보석 1개로 계속 할인해 줘요. 황금은 아무 색으로나 쓸 수 있어요.</li>
       <li>보석은 최대 10개, 예약은 최대 3장. 할인 조건을 채우면 귀족이 찾아와 3점을 줘요.</li>
-      <li>누군가 <b>15점</b>을 넘기면 그 라운드까지 하고 끝! 동점이면 카드를 적게 산 사람이 승리.</li>
+      <li>누군가 <b>목표 점수(15점 또는 20점)</b>를 넘기면 그 라운드까지 하고 끝! 동점이면 카드를 적게 산 사람이 승리.</li>
       <li>방장 폰이 게임 서버 역할을 해요. 게임 중엔 방장이 이 화면을 계속 켜 두세요.</li>
     </ul></div>`;
   $('#mk').onclick = ()=>createRoom();
@@ -358,10 +373,12 @@ function enterRoom(code){
     const d=s.data();
     const prevTurn = G?.turn;
     const prevRects = (G && G.status==='playing') ? captureRects() : {};
+    const justStarted = G && G.status==='lobby' && d.status==='playing';
     G = clone(d);
     if(G.status==='playing' && prevTurn!==G.turn && curId()===myId && prevTurn!==undefined){ setTimeout(()=>toast('내 차례예요!'),900); picks=[]; }
     render();
     if(G.status==='playing'||G.status==='ended') animateLast(prevRects); else lastSeqSeen=null;
+    if(justStarted) showOrder();
   });
 }
 function playersSorted(){ return Object.entries(G.players||{}).sort((a,b)=>a[1].joined-b[1].joined).map(x=>x[0]); }
@@ -380,6 +397,9 @@ function renderLobby(){
     </div>
     <div class="card-box"><b>참가자 ${ids.length}/4</b> <span class="tiny" id="net">${esc(netState)}</span>
       <div class="plist">${ids.map(id=>`<div><span>${esc(nameOf(id))}${id===myId?' (나)':''}</span><span class="pill">${id===G.host?'방장':'대기'}</span></div>`).join('')}</div>
+      <div class="modes"><div class="muted" style="margin:12px 0 6px">승리 조건 ${host?'':'(방장이 정해요)'}</div>
+        <div class="row">${[15,20].map(t=>`<button class="mode ${(G.target||15)===t?'on':''}" data-target="${t}" ${host?'':'disabled'}><b>${t}점</b><span>${t===15?'기본 · 빠른 게임':'긴 게임 · 큰 카드 노리기'}</span></button>`).join('')}</div>
+        <div class="muted" style="margin-top:6px">🎲 차례 순서는 시작할 때 랜덤으로 정해져요.</div></div>
       ${host ? `<button class="btn" id="st" ${ids.length<2?'disabled':''}>게임 시작</button>
         <div class="muted" style="margin-top:6px">${ids.length<2?'2명 이상 모이면 시작할 수 있어요.':''}</div>`
              : `<div class="muted" style="margin-top:10px">방장이 시작하기를 기다리는 중…</div>`}
@@ -389,6 +409,7 @@ function renderLobby(){
   $('#cp').onclick = async()=>{ try{ await navigator.clipboard.writeText(G.code); toast('복사했어요'); }catch(e){ toast('코드: '+G.code) } };
   $('#lv').onclick = ()=>leaveLobby();
   if(host && $('#st')) $('#st').onclick = ()=>startGame();
+  if(host) document.querySelectorAll('[data-target]').forEach(el=>el.onclick=async()=>{ try{ await db.doc().update({target:+el.dataset.target}); }catch(e){ toast(e.message) } });
 }
 async function leaveLobby(){
   if(G.status==='lobby' && G.players[myId]){
@@ -419,7 +440,7 @@ async function startGame(){
     nobles: shuffle(Object.keys(NOBLES)).slice(0,n+1),
     bank:{w:t,u:t,g:t,r:t,k:t,y:5},
     ps: Object.fromEntries(ids.map(id=>[id,{tokens:{w:0,u:0,g:0,r:0,k:0,y:0},cards:[],reserved:[],nobles:[]}])),
-    log:[{t:'게임 시작! 첫 차례는 '+d.players[ids[0]].name}], last:null, finalRound:false, v:d.v+1
+    target:d.target||15, log:[{t:'🎲 순서 랜덤 결정: '+ids.map(i=>d.players[i].name).join(' → ')},{t:'게임 시작! 목표 '+(d.target||15)+'점'}], last:null, finalRound:false, v:d.v+1
   });
   try{ await ref.set(d); }catch(e){ toast('시작 실패: '+e.message) }
 }
@@ -527,7 +548,8 @@ function finishTurn(d){
   const b=bonus(p);
   const nb = d.nobles.find(n=>Object.entries(NOBLES[n].req).every(([c,v])=>b[c]>=v));
   if(nb){ d.nobles=d.nobles.filter(x=>x!==nb); p.nobles.push(nb); addLog(d,'에게 귀족이 방문! (+3점)',id); if(d.last) d.last.noble=nb; }
-  if(points(p)>=15 && !d.finalRound){ d.finalRound=true; addLog(d,'15점 달성! 이번 라운드가 마지막이에요.',id); }
+  const tgt=d.target||15;
+  if(points(p)>=tgt && !d.finalRound){ d.finalRound=true; addLog(d,tgt+'점 달성! 이번 라운드가 마지막이에요.',id); }
   d.turn=(d.turn+1)%d.order.length;
   if(d.turn===0){
     if(d.finalRound){
@@ -668,9 +690,10 @@ function render(){
 
   $('#app').innerHTML = `
     <div class="topbar"><div><div class="turn ${cur===myId&&G.status==='playing'?'me':''}">${turnTxt}</div>
-      <div class="tiny">방 ${esc(G.code)} · <span id="net">${esc(netState)}</span> · ${G.round}라운드${G.finalRound&&G.status==='playing'?' · <b style="color:var(--accent)">마지막 라운드</b>':''}</div></div>
+      <div class="tiny">방 ${esc(G.code)} · <span id="net">${esc(netState)}</span> · 목표 ${G.target||15}점 · ${G.round}라운드${G.finalRound&&G.status==='playing'?' · <b style="color:var(--accent)">마지막 라운드</b>':''}</div></div>
       <button class="btn sec" id="menu" style="width:auto;margin:0;padding:7px 12px">메뉴</button></div>
     ${endBox}
+    <div class="order">${G.order.map((id,i)=>`<span class="oc ${id===cur&&G.status==='playing'?'on':''}" style="--pc:${pcol(id)}">${i+1}. ${esc(nameOf(id))}${id===myId?' (나)':''}</span>`).join('<span class="tiny">→</span>')}</div>
     <div class="opps">${opps}</div>
     <div class="nobles">${G.nobles.map(nobleHTML).join('')}</div>
     ${tiers}
@@ -766,6 +789,12 @@ function animateLast(prev){
   }
 }
 
+function showOrder(){
+  const el=document.createElement('div'); el.className='order-pop';
+  el.innerHTML=`<div class="op-in"><div class="op-t">🎲 순서 결정!</div>${G.order.map((id,i)=>`<div class="op-r" style="--pc:${pcol(id)};animation-delay:${.35+i*.35}s"><b>${i+1}</b> ${esc(nameOf(id))}${id===myId?' (나)':''}</div>`).join('')}<div class="tiny" style="margin-top:8px">목표 ${G.target||15}점 · 탭하면 닫혀요</div></div>`;
+  el.onclick=()=>el.remove(); document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 1600+G.order.length*350);
+}
 // ===================== 모달 =====================
 function openModal(html){ $('#modal').innerHTML=`<div class="sheet-bg" id="bg"><div class="sheet">${html}</div></div>`; $('#bg').onclick=e=>{ if(e.target.id==='bg' && !pending) closeModal(); }; }
 function closeModal(){ $('#modal').innerHTML=''; }
