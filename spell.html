@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>용용이의 분노</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+body{background:radial-gradient(ellipse at top,#2b1f4a 0%,#130f1d 65%)}
+.pl{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--pc);border-radius:12px;padding:7px 9px;margin-bottom:6px;position:relative}
+.pl.cur{box-shadow:0 0 0 1px var(--pc) inset, 0 0 16px -4px var(--pc);background:#2a2240}
+.pl.out{opacity:.45}
+.pl .h{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.pl .nm{font-weight:800}
+.pl .side{font-size:10px;padding:1px 6px;border-radius:8px;background:#ffffff14;color:var(--dim);margin-left:4px}
+.hearts{font-size:13px;letter-spacing:-1px}
+.hearts .x{opacity:.18;filter:grayscale(1)}
+.score{font-family:'Black Han Sans';color:var(--accent);font-size:16px}
+.stones{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;align-items:center}
+.st{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Black Han Sans';font-size:16px;color:#fff;border:2px solid rgba(255,255,255,.55);box-shadow:inset 0 -3px 0 rgba(0,0,0,.3),0 2px 4px rgba(0,0,0,.4);text-shadow:0 1px 2px #000}
+.st.back{background:radial-gradient(circle at 35% 30%,#6c5a99,#2d2445);color:#cbbfee;font-size:15px}
+.st.owl{outline:2px dashed #b9a3ff;outline-offset:2px}
+.st.sm{width:22px;height:22px;font-size:12px}
+.lbl{font-size:10px;color:var(--dim);margin-right:2px}
+.spells{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.sp{border-radius:12px;padding:6px 4px 5px;text-align:center;border:2px solid transparent;background:linear-gradient(170deg,var(--c),color-mix(in srgb,var(--c) 45%,#120f19));color:#fff;position:relative;min-height:108px;display:flex;flex-direction:column;align-items:center;gap:1px}
+.sp .num{font-family:'Black Han Sans';font-size:24px;line-height:1;text-shadow:0 2px 3px rgba(0,0,0,.5)}
+.sp .ic{font-size:20px;line-height:1.1}
+.sp .sn{font-size:10.5px;font-weight:900;line-height:1.15;word-break:keep-all}
+.sp .cnt{margin-top:auto;font-size:10px;background:rgba(0,0,0,.35);border-radius:8px;padding:1px 5px}
+.sp .hp{font-size:9.5px;color:#fff;opacity:.9}
+.sp:disabled{filter:grayscale(.75) brightness(.55)}
+.sp.zero .hp{color:#ffb3b3}
+.sp.flash{animation:spf .9s}
+@keyframes spf{0%{transform:scale(1)}30%{transform:scale(1.12);box-shadow:0 0 22px #fff}100%{transform:scale(1)}}
+.bar{display:flex;gap:8px;align-items:center}
+.bar .btn{margin:0}
+.cast-pop{position:fixed;inset:0;z-index:94;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.cast-card{width:240px;border-radius:18px;padding:16px;text-align:center;color:#fff;background:linear-gradient(160deg,var(--c),#1b1428);border:3px solid #fff;box-shadow:0 12px 40px rgba(0,0,0,.7);animation:cc 2.3s ease forwards}
+.cast-card .ic{font-size:44px}
+.cast-card .t{font-family:'Black Han Sans';font-size:24px;margin:4px 0}
+.cast-card .r{font-size:20px;font-weight:900}
+.cast-card .r.fail{color:#ff8f86}.cast-card .r.ok{color:#9dffb0}
+.cast-card .dd{font-size:15px;margin-top:6px}
+@keyframes cc{0%{transform:scale(.4) rotate(-8deg);opacity:0}12%{transform:scale(1.05);opacity:1}20%{transform:none}85%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
+.dieb{display:inline-block;width:34px;height:34px;line-height:34px;background:#fff;color:#2b2130;border-radius:8px;font-weight:900;font-size:20px;margin:0 4px;animation:dr .1s linear 6}
+@keyframes dr{50%{transform:rotate(20deg) translateY(-3px)}}
+.secret{display:flex;gap:4px;align-items:center;justify-content:center;margin-top:4px}
+.res .row{justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)}
+.wait{padding:10px;text-align:center;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="common.js"></script>
+<script>
+// ===================== 주문 (이름·효과 설명은 오리지널) =====================
+const SP={
+ 1:{n:'용용이의 분노',e:'주사위를 굴려 나온 만큼 다른 모두의 생명이 줄어요',s:'모두 -주사위',c:'#d63031',ic:'🐉'},
+ 2:{n:'그림자 흡혈',e:'다른 모두 생명 -1, 나는 +1',s:'모두 -1 · 나 +1',c:'#8e44ad',ic:'🦇'},
+ 3:{n:'달빛 치유',e:'주사위를 굴려 나온 만큼 내 생명 회복',s:'나 +주사위',c:'#2e86de',ic:'🌙'},
+ 4:{n:'비밀의 부엉이',e:'비밀 돌 1개를 가져와 혼자 봐요 (라운드 끝까지 살아남으면 1점)',s:'비밀 돌 +1',c:'#16a085',ic:'🦉'},
+ 5:{n:'천둥 번개',e:'양옆 두 사람의 생명 -1',s:'양옆 -1',c:'#e1b12c',ic:'⚡'},
+ 6:{n:'얼음 화살',e:'왼쪽(내 다음 차례) 사람 생명 -1',s:'왼쪽 -1',c:'#4aa3df',ic:'❄️'},
+ 7:{n:'불꽃 화살',e:'오른쪽(내 이전 차례) 사람 생명 -1',s:'오른쪽 -1',c:'#e67e22',ic:'🔥'},
+ 8:{n:'회복 물약',e:'내 생명 +1',s:'나 +1',c:'#27ae60',ic:'🧪'},
+};
+const MAXL=6, HAND=5;
+const curId=()=>G.order[G.turn];
+const living=d=>d.order.filter(id=>d.life[id]>0);
+function nb(d,id,dir){ const L=d.order; let k=L.indexOf(id); for(let s=0;s<L.length;s++){ k=(k+dir+L.length)%L.length; if(d.life[L[k]]>0 && L[k]!==id) return L[k]; } return null; }
+const leftOf=(d,id)=>nb(d,id,1), rightOf=(d,id)=>nb(d,id,-1);
+function stoneHTML(n,cls=''){ return `<div class="st ${cls}" style="background:radial-gradient(circle at 35% 30%,color-mix(in srgb,${SP[n].c} 55%,#fff),${SP[n].c} 65%,color-mix(in srgb,${SP[n].c} 60%,#000))">${n}</div>`; }
+function hearts(n){ return [...Array(MAXL)].map((_,k)=>`<span class="${k<n?'':'x'}">❤️</span>`).join(''); }
+
+function setupRound(d){
+  let s=[]; for(let n=1;n<=8;n++) for(let k=0;k<n;k++) s.push(n);
+  s=shuffle(s); d.secret=s.splice(0,4); d.hands={}; d.owl={}; d.life={};
+  d.order.forEach(id=>{ d.hands[id]=s.splice(0,HAND); d.owl[id]=[]; d.life[id]=MAXL; });
+  d.pool=s; d.played={}; d.minN=0; d.cast=0; d.phase='play'; d.turn=d.starter; d.res=null;
+  addLog(d,`✨ ${d.roundNo}라운드 시작! 첫 차례: ${d.players[d.order[d.starter]].name}`);
+}
+function dmg(d,id,amt){ const before=d.life[id]; d.life[id]=Math.max(0,Math.min(MAXL,before+amt)); const real=d.life[id]-before; if(real) d.last.dmg[id]=(d.last.dmg[id]||0)+real; }
+function roundEnd(d,why,who){
+  const gains={}; const alive=living(d);
+  d.order.forEach(id=>gains[id]=0);
+  if(why!=='self' && d.life[who]>0) gains[who]+=3;
+  alive.forEach(id=>{ if(id!==who) gains[id]+=1; gains[id]+=d.owl[id].length; });
+  d.order.forEach(id=>d.score[id]+=gains[id]);
+  d.phase='roundEnd'; d.res={why,who,gains};
+  const txt = why==='kill'?'상대를 쓰러뜨려 라운드 종료!':why==='empty'?'돌을 모두 써서 라운드 종료!':'스스로 쓰러져 라운드 종료…';
+  addLog(d,txt,who);
+  const top=Math.max(...d.order.map(id=>d.score[id]));
+  if(top>=d.opts.target){ d.status='ended'; d.rank=d.order.slice().sort((a,b)=>d.score[b]-d.score[a]); addLog(d,'게임 종료! 우승: '+d.players[d.rank[0]].name); }
+}
+function endTurn(d){
+  const me=d.order[d.turn]; const h=d.hands[me];
+  while(h.length<HAND && d.pool.length) h.push(d.pool.pop());
+  d.minN=0; d.cast=0;
+  let t=d.turn; do{ t=(t+1)%d.order.length; }while(d.life[d.order[t]]<=0);
+  d.turn=t;
+}
+async function doCast(n){
+  closeModal();
+  if(curId()!==myId||G.phase!=='play'||G.status!=='playing'||n<G.minN) return;
+  const d=clone(G); const me=myId; const h=d.hands[me]; const k=h.indexOf(n);
+  d.last={seq:(G.v||0)+1,by:me,n,ok:k>=0,dmg:{}};
+  if(k>=0){
+    h.splice(k,1); d.played[n]=(d.played[n]||0)+1; d.minN=n; d.cast++;
+    const others=living(d).filter(x=>x!==me);
+    if(n===1){ const r=1+rnd(6); d.last.roll=r; others.forEach(x=>dmg(d,x,-r)); addLog(d,`🐉 용용이의 분노 성공! 주사위 ${r} → 모두 -${r}`,me); }
+    if(n===2){ others.forEach(x=>dmg(d,x,-1)); dmg(d,me,1); addLog(d,'🦇 그림자 흡혈 성공! 모두 -1, 나 +1',me); }
+    if(n===3){ const r=1+rnd(6); d.last.roll=r; dmg(d,me,r); addLog(d,`🌙 달빛 치유 성공! 주사위 ${r} 만큼 회복`,me); }
+    if(n===4){ if(d.secret.length){ d.owl[me].push(d.secret.pop()); addLog(d,'🦉 비밀의 부엉이 성공! 비밀 돌 1개 획득',me); } else addLog(d,'🦉 비밀의 부엉이 성공! (남은 비밀 돌 없음)',me); }
+    if(n===5){ const a=leftOf(d,me), b=rightOf(d,me); [...new Set([a,b])].filter(Boolean).forEach(x=>dmg(d,x,-1)); addLog(d,'⚡ 천둥 번개 성공! 양옆 -1',me); }
+    if(n===6){ const a=leftOf(d,me); if(a) dmg(d,a,-1); addLog(d,`❄️ 얼음 화살 성공! ${a?d.players[a].name:''} -1`,me); }
+    if(n===7){ const b=rightOf(d,me); if(b) dmg(d,b,-1); addLog(d,`🔥 불꽃 화살 성공! ${b?d.players[b].name:''} -1`,me); }
+    if(n===8){ dmg(d,me,1); addLog(d,'🧪 회복 물약 성공! +1',me); }
+    if(d.order.some(x=>x!==me && G.life[x]>0 && d.life[x]<=0)) roundEnd(d,'kill',me);
+    else if(h.length===0) roundEnd(d,'empty',me);
+  } else {
+    let amt=1; if(n===1){ amt=1+rnd(6); d.last.roll=amt; }
+    dmg(d,me,-amt);
+    addLog(d,`${SP[n].ic} ${n}번 ${SP[n].n} 실패… 생명 -${amt}`,me);
+    if(d.life[me]<=0) roundEnd(d,'self',me); else endTurn(d);
+  }
+  commit(d);
+}
+async function doPass(){
+  if(curId()!==myId||G.cast<1||G.phase!=='play') return;
+  const d=clone(G); d.last={seq:(G.v||0)+1,by:myId,pass:true,dmg:{}};
+  addLog(d,'차례를 마쳤어요',myId); endTurn(d); commit(d);
+}
+async function doNextRound(){
+  if(G.phase!=='roundEnd'||G.status!=='playing') return;
+  const d=clone(G); d.starter=(d.starter+1)%d.order.length; d.roundNo++; d.last={seq:(G.v||0)+1,by:myId,round:true,dmg:{}};
+  setupRound(d); commit(d);
+}
+
+// ===================== 그리기 =====================
+let lastSeen=null;
+function possibleMine(n){
+  const others=G.order.filter(x=>x!==myId).reduce((s,x)=>s+G.hands[x].filter(v=>v===n).length,0);
+  const owl=(G.owl[myId]||[]).filter(v=>v===n).length;
+  return Math.max(0,Math.min(G.hands[myId].length, n-(G.played[n]||0)-others-owl));
+}
+function render(prev){
+  if(!G) return;
+  const cur=curId(), my=cur===myId&&G.phase==='play'&&G.status==='playing';
+  const meIn=!!G.life && G.life[myId]!==undefined;
+  const L=leftOf(G,myId), R=rightOf(G,myId);
+  const seats=[]; // 나를 맨 아래로: 내 다음 사람부터 순서대로
+  const k=G.order.indexOf(myId);
+  for(let s=1;s<=G.order.length;s++) seats.push(G.order[((k<0?0:k)+s)%G.order.length]);
+  const cards=seats.map(id=>{
+    const me=id===myId, life=G.life[id];
+    const side = me?'' : (id===L&&id===R?'<span class="side">양옆</span>':id===L?'<span class="side">← 왼쪽 ❄️</span>':id===R?'<span class="side">오른쪽 🔥 →</span>':'');
+    const hand = me ? G.hands[id].map(()=>`<div class="st back">?</div>`).join('') : G.hands[id].map(n=>stoneHTML(n)).join('');
+    const owl = me ? G.owl[id].map(n=>stoneHTML(n,'owl sm')).join('') : G.owl[id].map(()=>`<div class="st back sm owl">?</div>`).join('');
+    return `<div class="pl ${id===cur&&G.phase==='play'&&G.status==='playing'?'cur':''} ${life<=0?'out':''}" data-pid="${id}" style="--pc:${pcol(id)}">
+      <div class="h"><span class="nm">${esc(nameOf(id))}${me?' (나)':''}${side}</span><span class="score">⭐ ${G.score[id]}</span></div>
+      <div class="h"><span class="hearts">${hearts(life)}</span><span class="tiny">${life<=0?'쓰러짐':''}</span></div>
+      <div class="stones"><span class="lbl">${me?'내 돌 (안 보임)':'돌'}</span>${hand||'<span class="tiny">없음</span>'}${owl?`<span class="lbl" style="margin-left:6px">🦉비밀</span>${owl}`:''}</div>
+    </div>`;
+  }).join('');
+  const spells=[1,2,3,4,5,6,7,8].map(n=>{
+    const pm = meIn ? possibleMine(n) : 0;
+    const dis = !my || n<G.minN;
+    return `<button class="sp ${G.opts.helper&&pm===0?'zero':''}" data-sp="${n}" style="--c:${SP[n].c}" ${dis?'disabled':''}>
+      <div class="num">${n}</div><div class="ic">${SP[n].ic}</div><div class="sn">${SP[n].n}</div>
+      ${G.opts.helper&&meIn?`<div class="hp">내게 최대 ${pm}개</div>`:''}
+      <div class="cnt">나온 돌 ${G.played[n]||0}/${n}</div></button>`;
+  }).join('');
+  let mid='';
+  if(G.status==='ended') mid=endBoxHTML(G.rank.map(id=>({id,txt:`${G.score[id]}점`})));
+  else if(G.phase==='roundEnd'){
+    const r=G.res;
+    mid=`<div class="card-box res"><b style="font-size:16px">${G.roundNo}라운드 결과</b>
+      <div class="muted" style="margin:4px 0 8px"><b style="color:${pcol(r.who)}">${esc(nameOf(r.who))}</b> ${r.why==='kill'?'이(가) 상대를 쓰러뜨렸어요!':r.why==='empty'?'이(가) 돌을 모두 썼어요!':'이(가) 주문 실패로 쓰러졌어요…'}</div>
+      ${G.order.map(id=>`<div class="row"><span style="color:${pcol(id)}">${esc(nameOf(id))}${id===myId?' (나)':''} ${G.owl[id].length?`<span class="tiny">🦉비밀 ${G.owl[id].map(n=>n).join(',')}</span>`:''}</span><span>+${r.gains[id]} → <b style="color:var(--accent)">${G.score[id]}점</b></span></div>`).join('')}
+      <div class="muted" style="margin-top:6px">내 돌은 ${G.hands[myId]?G.hands[myId].join(', ')||'없음':''}이었어요.</div>
+      <button class="btn" id="next">다음 라운드 시작</button></div>`;
+  }
+  const status = G.status!=='playing'||G.phase!=='play' ? '' : my
+    ? `<div class="bar"><div style="flex:1"><b style="color:var(--accent)">내 차례!</b> <span class="tiny">${G.minN?`${G.minN}번 이상만 외울 수 있어요`:'아무 주문이나 외워 보세요'}</span></div>${G.cast?'<button class="btn sec sm" id="pass">턴 끝내기</button>':''}</div>`
+    : `<div class="wait">${esc(nameOf(cur))}의 차례… ${G.cast?`(이번 턴 ${G.cast}번 성공)`:''}</div>`;
+  $('#app').innerHTML=`
+    <div class="topbar"><div><div class="turn ${my?'me':''}">${G.status==='ended'?'게임 종료':G.phase==='roundEnd'?'라운드 종료':my?'내 차례!':esc(nameOf(cur))+'의 차례'}</div>
+      <div class="tiny">방 ${esc(G.code)} · <span class="net">${esc(netState)}</span> · ${G.roundNo}라운드 · 목표 ${G.opts.target}점 · 남은 돌 ${G.pool.length} · 비밀 돌 ${G.secret.length}</div></div>
+      <button class="btn sec sm" id="menu">메뉴</button></div>
+    ${mid}
+    ${cards}
+    ${status}
+    <div class="spells">${spells}</div>
+    <div class="log">${(G.log||[]).slice().reverse().map(logHTML).join('')}</div>`;
+  $('#menu').onclick=()=>openMenu();
+  $('#pass')&&($('#pass').onclick=doPass);
+  $('#next')&&($('#next').onclick=()=>{ $('#next').disabled=true; doNextRound(); });
+  $('#again')&&($('#again').onclick=restartToLobby);
+  document.querySelectorAll('[data-sp]').forEach(el=>el.onclick=()=>confirmCast(+el.dataset.sp));
+  const La=G.last;
+  if(La && lastSeen!==null && La.seq>lastSeen){ lastSeen=La.seq; playAnim(La); }
+  else if(lastSeen===null) lastSeen=La?La.seq:0;
+}
+function confirmCast(n){
+  const pm=possibleMine(n);
+  openModal(`<div style="text-align:center"><div style="font-size:40px">${SP[n].ic}</div><h3>${n}번 · ${SP[n].n}</h3>
+    <p class="muted">${SP[n].e}</p>
+    <p class="tiny">내 앞에 이 돌이 있으면 성공, 없으면 실패해서 생명 ${n===1?'(주사위만큼)':'1'}을 잃어요.${G.opts.helper?` · 계산상 최대 ${pm}개`:''}</p></div>
+    <button class="btn" id="go" style="background:${SP[n].c};color:#fff">주문 외우기!</button><button class="btn sec" id="no">취소</button>`);
+  $('#go').onclick=()=>{ $('#go').disabled=true; doCast(n); }; $('#no').onclick=closeModal;
+}
+function playAnim(La){
+  if(La.round){ banner(null,`${G.roundNo}라운드 시작!`); return; }
+  if(La.pass){ banner(La.by,'차례를 마쳤어요'); return; }
+  const n=La.n, s=SP[n];
+  const el=document.createElement('div'); el.className='cast-pop';
+  el.innerHTML=`<div class="cast-card" style="--c:${s.c}"><div class="ic">${s.ic}</div><div class="tiny" style="color:#fff">${esc(nameOf(La.by))}${La.by===myId?' (나)':''}의 주문</div><div class="t">${n}. ${esc(s.n)}</div>
+    <div class="r ${La.ok?'ok':'fail'}">${La.ok?'성공!':'실패…'}</div>${La.roll?`<div class="dd">주사위 <span class="dieb" id="dieb">?</span></div>`:''}</div>`;
+  document.body.appendChild(el); setTimeout(()=>el.remove(),2350);
+  if(La.roll){ let k=0; const iv=setInterval(()=>{ const d=$('#dieb'); if(!d){clearInterval(iv);return} d.textContent=++k>6?La.roll:1+rnd(6); if(k>6) clearInterval(iv); },80); }
+  const tile=document.querySelector(`[data-sp="${n}"]`); if(tile&&La.ok){ tile.classList.add('flash'); }
+  setTimeout(()=>{
+    Object.entries(La.dmg||{}).forEach(([id,v],i)=>setTimeout(()=>{
+      const c=document.querySelector(`.pl[data-pid="${id}"]`);
+      floatAt(c,(v>0?'+':'')+v+' ❤️',v>0?'#5fd38d':'#ff6b6b'); if(v<0) shakeEl(c); else pulseEl(c,'#5fd38d');
+    },i*120));
+  },900);
+}
+
+boot({
+  id:'spell', title:'용용이의 분노', sub:'내 돌은 나만 못 봐요! 남의 돌을 보고 추리해 주문을 외우세요 · 2~5인', min:2, max:5,
+  rules:`<li>1~8번 마법 돌이 각각 번호만큼 있어요(총 36개). 각자 5개를 받는데, <b>남의 돌은 보이고 내 돌은 안 보여요.</b></li>
+    <li>내 차례엔 번호를 골라 주문을 외워요. 내 앞에 그 돌이 있으면 성공 → 효과 발동 후 <b>같거나 더 큰 번호</b>로 계속하거나 턴을 끝낼 수 있어요.</li>
+    <li>없으면 실패 → 생명 1 잃고 턴 끝 (1번 용용이의 분노 실패는 주사위만큼!). 턴이 끝나면 돌을 5개까지 다시 받아요.</li>
+    <li>누군가 쓰러지거나 누가 돌을 다 쓰면 라운드 끝: 그 사람 3점, 살아남은 다른 사람 1점, 🦉비밀 돌 1개당 1점.</li>
+    <li>먼저 목표 점수(기본 8점)에 닿으면 승리! 생명은 최대 6.</li>`,
+  defaultOpts:()=>({target:8,helper:true}),
+  lobbyOpts:(G,host)=>`<div class="muted opt-t">목표 점수 ${host?'':'(방장이 정해요)'}</div>${optButtons(G,host,'target',[[5,'5점','짧게'],[8,'8점','기본'],[12,'12점','길게']])}
+    <div class="muted opt-t">계산 도우미</div>${optButtons(G,host,'helper',[[true,'켜기','내게 최대 몇 개 있을지 표시'],[false,'끄기','머리로 직접 추리']])}`,
+  setup:d=>{ d.score=Object.fromEntries(d.order.map(id=>[id,0])); d.roundNo=1; d.starter=0; setupRound(d); },
+  render,
+});
+</script>
+</body>
+</html>

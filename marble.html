@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>세계여행 부자왕</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+.board{position:relative;width:100%;aspect-ratio:1;display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);gap:2px;background:#0f0c16;border-radius:10px;padding:2px;margin-bottom:10px}
+.cell{position:relative;background:#f1ead9;color:#2b2130;border-radius:3px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-size:8.5px;line-height:1.1;text-align:center;cursor:pointer;border:1.5px solid transparent}
+.cell .band{width:100%;height:22%;flex:none}
+.cell .nm{font-weight:900;margin-top:1px;padding:0 1px;word-break:keep-all}
+.cell .pr{margin-top:auto;margin-bottom:1px;font-size:8px;color:#6b5a50}
+.cell .bd{margin-top:auto;font-size:10px;line-height:1}
+.cell.own{border-color:var(--oc);background:color-mix(in srgb,var(--oc) 28%,#f1ead9)}
+.cell.own .pr{color:#2b2130;font-weight:700}
+.cell.corner{background:linear-gradient(145deg,#3d3352,#2a2238);color:#fff;justify-content:center;font-size:10px}
+.cell.corner .ic{font-size:18px;line-height:1.1}
+.cell.luck{background:linear-gradient(160deg,#ffe28a,#f5b83d);justify-content:center}
+.cell.luck .ic{font-size:15px}
+.cell.fund{background:linear-gradient(160deg,#d6f0ff,#8ec5ea);justify-content:center}
+.cell.tour{background:linear-gradient(160deg,#e6f7ef,#bfe5d2)}
+.cell.tour .band{background:repeating-linear-gradient(90deg,#1f9d63 0 4px,#fff 4px 8px)}
+.cell.pick{animation:pickme 1s infinite}
+@keyframes pickme{50%{box-shadow:0 0 0 2px #fff inset;filter:brightness(1.15)}}
+.cell.here{box-shadow:0 0 0 2px var(--pc) inset}
+.center{grid-row:2/9;grid-column:2/9;background:radial-gradient(circle at 50% 40%,#3a2f55,#1d1729);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px;text-align:center;position:relative;overflow:hidden}
+.center .title{font-family:'Black Han Sans';font-size:22px;color:var(--accent);letter-spacing:1px;opacity:.9}
+.center .fund{font-size:12px;color:#8ec5ea}
+.dice{display:flex;gap:10px}
+.die{width:44px;height:44px;background:#fff;border-radius:9px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:6px;box-shadow:0 4px 0 #bbb,0 6px 10px rgba(0,0,0,.4)}
+.die i{width:8px;height:8px;border-radius:50%;background:#2b2130;place-self:center;visibility:hidden}
+.die i.on{visibility:visible}
+.die.dbl{box-shadow:0 4px 0 #e8b923,0 0 14px #e8b923}
+.die.roll{animation:roll .12s linear infinite}
+@keyframes roll{0%{transform:rotate(0)}50%{transform:rotate(14deg) translateY(-4px)}100%{transform:rotate(0)}}
+.center .act{width:80%}
+.center .act .btn{margin-top:4px}
+.center .cl{font-size:10.5px;color:var(--dim);max-width:95%}
+.tk{position:absolute;width:15px;height:15px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.6);transition:left .16s ease,top .16s ease;z-index:5;pointer-events:none}
+.tk.me{width:17px;height:17px;border-width:3px}
+.tk.hop{animation:hop .16s ease}
+@keyframes hop{50%{transform:translateY(-8px) scale(1.15)}}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.pc{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--pc);border-radius:10px;padding:6px 8px}
+.pc.cur{box-shadow:0 0 0 1px var(--pc) inset;background:#2a2238}
+.pc.dead{opacity:.4}
+.pc .n{font-weight:800;display:flex;justify-content:space-between;gap:4px}
+.pc .cash{font-size:17px;font-weight:900;color:#fff}
+.pc .sub2{font-size:10.5px;color:var(--dim)}
+.decide .cityhd{border-radius:10px;padding:10px;margin-bottom:10px;background:#f1ead9;color:#2b2130}
+.decide table{width:100%;font-size:12px;border-collapse:collapse;margin:6px 0}
+.decide td{padding:3px 4px;border-bottom:1px solid #0001}
+.luckpop{position:fixed;inset:0;z-index:93;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.luckcard{background:linear-gradient(160deg,#fff3c4,#f5b83d);color:#3a2410;border-radius:16px;padding:18px 20px;width:250px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.6);animation:lc 2.4s ease forwards;border:3px solid #fff}
+.luckcard b{display:block;font-size:20px;margin-bottom:6px;font-family:'Black Han Sans'}
+@keyframes lc{0%{transform:rotateY(90deg) scale(.6);opacity:0}15%{transform:none;opacity:1}85%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="common.js"></script>
+<script>
+// ===================== 보드 데이터 (오리지널 구성) =====================
+const GC=['#e17055','#fdcb6e','#00b894','#0984e3','#6c5ce7','#e84393','#00cec9','#d63031'];
+const CELLS=[
+ {t:'start',n:'출발',ic:'🏁'},
+ {t:'city',n:'타이베이',g:0,p:6},{t:'luck',n:'행운',ic:'🍀'},{t:'city',n:'베이징',g:0,p:8},{t:'city',n:'마닐라',g:0,p:8},
+ {t:'tour',n:'제주도',p:20,r:28,ic:'🌴'},{t:'city',n:'싱가포르',g:1,p:10},{t:'city',n:'카이로',g:1,p:12},
+ {t:'island',n:'무인도',ic:'🏝️'},
+ {t:'city',n:'이스탄불',g:2,p:14},{t:'luck',n:'행운',ic:'🍀'},{t:'city',n:'아테네',g:2,p:14},{t:'city',n:'코펜하겐',g:2,p:16},
+ {t:'tour',n:'여객기',p:22,r:30,ic:'✈️'},{t:'city',n:'스톡홀름',g:3,p:18},{t:'city',n:'베른',g:3,p:18},
+ {t:'fundget',n:'복지기금 받기',ic:'💰'},
+ {t:'city',n:'베를린',g:4,p:20},{t:'luck',n:'행운',ic:'🍀'},{t:'city',n:'오타와',g:4,p:22},{t:'city',n:'부에노스',g:4,p:22},
+ {t:'tour',n:'크루즈',p:25,r:35,ic:'🚢'},{t:'city',n:'상파울루',g:5,p:24},{t:'city',n:'시드니',g:5,p:26},
+ {t:'space',n:'우주여행',ic:'🚀'},
+ {t:'city',n:'하와이',g:6,p:28},{t:'city',n:'리스본',g:6,p:28},{t:'luck',n:'행운',ic:'🍀'},{t:'city',n:'마드리드',g:6,p:30},
+ {t:'fundpay',n:'기금 납부',ic:'🏦'},{t:'city',n:'도쿄',g:7,p:32},{t:'city',n:'서울',g:7,p:40},
+];
+const N=CELLS.length, START_CASH=250, SALARY=20, FUND=15;
+const BLD=['땅','별장','빌딩','호텔'], BIC=['','🏠','🏢','🏨'];
+function rc(i){ if(i<=8) return [8,8-i]; if(i<=16) return [8-(i-8),0]; if(i<=24) return [0,i-16]; return [i-24,8]; }
+function rentOf(i,lv){ const c=CELLS[i]; if(c.t==='tour') return c.r; return Math.round(c.p*[0.3,1.2,2.8,5][lv]); }
+function bcost(i,k){ return Math.ceil(CELLS[i].p*[0,0.5,1,1.5][k]); }
+function propValue(i,o){ let v=CELLS[i].p; for(let k=1;k<=o.lv;k++) v+=bcost(i,k); return v; }
+function assets(d,id){ let v=d.ps[id].cash; for(const i in d.own) if(d.own[i].o===id) v+=propValue(+i,d.own[i]); return v; }
+const won=n=>n+'만';
+
+// ===================== 행운 카드 =====================
+const LUCK=[
+ {t:'복권 당첨!',s:'20만원을 받아요',f:(d,id)=>gain(d,id,20)},
+ {t:'장학금',s:'10만원을 받아요',f:(d,id)=>gain(d,id,10)},
+ {t:'과속 벌금',s:'10만원을 복지기금에 내요',f:(d,id)=>pay(d,id,10,'fund')},
+ {t:'건물 수리비',s:'별장 3만, 빌딩 6만, 호텔 10만원씩 내요',f:(d,id)=>{let s=0;for(const i in d.own){const o=d.own[i];if(o.o===id)s+=[0,3,6,10][o.lv];} if(s) pay(d,id,s,null); else addLog(d,'수리할 건물이 없어요',id);}},
+ {t:'무인도 표류',s:'무인도로 바로 가요',f:(d,id)=>{goTo(d,id,8,false);return 'land'}},
+ {t:'고향 방문',s:'출발 칸으로 가서 월급을 받아요',f:(d,id)=>{goTo(d,id,0,true);return 'land'}},
+ {t:'우주 정거장 초대',s:'우주여행 칸으로 이동',f:(d,id)=>{goTo(d,id,24,true);return 'land'}},
+ {t:'길을 잃었다',s:'뒤로 3칸',f:(d,id)=>{back(d,id,3);return 'land'}},
+ {t:'생일 축하!',s:'모두에게 5만원씩 받아요',f:(d,id)=>{alive(d).filter(x=>x!==id).forEach(x=>pay(d,x,5,id));}},
+ {t:'탈출 비법',s:'무인도 탈출권 1장 (자동 사용)',f:(d,id)=>{d.ps[id].escape++;}},
+ {t:'VIP 패스',s:'통행료 면제권 1장 (자동 사용)',f:(d,id)=>{d.ps[id].free++;}},
+ {t:'서울 출장',s:'서울로 이동',f:(d,id)=>{goTo(d,id,31,true);return 'land'}},
+ {t:'해외 유학',s:'학비 15만원을 내요',f:(d,id)=>pay(d,id,15,null)},
+ {t:'주식 대박',s:'주사위 눈 × 5만원을 받아요',f:(d,id)=>{const r=1+rnd(6);addLog(d,`주사위 ${r}!`,id);gain(d,id,r*5);}},
+ {t:'한턱 쏘기',s:'모두에게 3만원씩 줘요',f:(d,id)=>{alive(d).filter(x=>x!==id).forEach(x=>{if(d.ps[id].alive)pay(d,id,3,x)});}},
+ {t:'기금 당첨',s:'복지기금을 모두 받아요',f:(d,id)=>{if(d.fund){gain(d,id,d.fund);d.fund=0}else addLog(d,'기금이 비어 있어요',id);}},
+];
+
+// ===================== 규칙 로직 =====================
+const alive=d=>d.order.filter(id=>d.ps[id].alive);
+const curId=()=>G.order[G.turn];
+function gain(d,id,amt){ d.ps[id].cash+=amt; d.last.ev.push({id,amt}); }
+function pay(d,id,amt,to){
+  const p=d.ps[id]; if(!p.alive) return;
+  if(p.cash<amt) liquidate(d,id,amt);
+  if(p.cash<amt){ // 파산
+    const rest=p.cash; p.cash=0; d.last.ev.push({id,amt:-rest});
+    if(to==='fund') d.fund+=rest; else if(to){ d.ps[to].cash+=rest; d.last.ev.push({id:to,amt:rest}); }
+    for(const i in d.own) if(d.own[i].o===id) delete d.own[i];
+    p.alive=false; addLog(d,'💥 파산했어요!',id); return;
+  }
+  p.cash-=amt; d.last.ev.push({id,amt:-amt});
+  if(to==='fund') d.fund+=amt; else if(to){ d.ps[to].cash+=amt; d.last.ev.push({id:to,amt}); }
+}
+function liquidate(d,id,need){
+  const props=Object.keys(d.own).filter(i=>d.own[i].o===id).map(Number).sort((a,b)=>propValue(a,d.own[a])-propValue(b,d.own[b]));
+  while(d.ps[id].cash<need && props.length){
+    const i=props.shift(); const v=Math.floor(propValue(i,d.own[i])/2);
+    delete d.own[i]; d.ps[id].cash+=v; addLog(d,`${CELLS[i].n}을(를) ${won(v)}에 급매`,id);
+  }
+}
+function stepTo(d,id,dest,salary){ const p=d.ps[id]; while(p.pos!==dest){ p.pos=(p.pos+1)%N; d.last.path.push(p.pos); if(p.pos===0&&salary){ gain(d,id,SALARY); addLog(d,`출발 통과! 월급 ${won(SALARY)}`,id);} } }
+function goTo(d,id,dest,salary){ if(dest===8&&!salary){ d.ps[id].pos=8; d.last.path.push(8); d.last.jump=true; } else stepTo(d,id,dest,salary); }
+function back(d,id,n){ const p=d.ps[id]; for(let k=0;k<n;k++){ p.pos=(p.pos-1+N)%N; d.last.path.push(p.pos); } }
+function moveSteps(d,id,n){ const p=d.ps[id]; stepTo(d,id,(p.pos+n)%N,true); }
+function land(d,id,depth=0){
+  const p=d.ps[id]; if(!p.alive) return; const i=p.pos, c=CELLS[i];
+  if(c.t==='city'||c.t==='tour'){
+    const o=d.own[i];
+    if(!o){ if(p.cash>=c.p) d.pending={type:'buy',cell:i}; else addLog(d,`${c.n}에 왔지만 살 돈이 부족해요`,id); }
+    else if(o.o===id){ if(c.t==='city'&&o.lv<3&&p.cash>=bcost(i,o.lv+1)) d.pending={type:'build',cell:i}; else addLog(d,`내 땅 ${c.n}에 도착`,id); }
+    else { const r=rentOf(i,o.lv);
+      if(p.free>0){ p.free--; addLog(d,`VIP 패스로 ${c.n} 통행료 면제!`,id); }
+      else { addLog(d,`${c.n} 통행료 ${won(r)} → ${d.players[o.o].name}`,id); pay(d,id,r,o.o); } }
+  } else if(c.t==='luck'){
+    const k=d.luck.shift(); d.luck.push(k); const L=LUCK[k]; d.last.card=k;
+    addLog(d,`🍀 행운카드: ${L.t} — ${L.s}`,id);
+    const r=L.f(d,id); if(r==='land' && depth<2 && d.ps[id].alive) land(d,id,depth+1);
+  } else if(c.t==='island'){
+    if(p.escape>0){ p.escape--; addLog(d,'탈출 비법 사용! 무인도를 바로 빠져나와요',id); }
+    else { p.island=2; d.again=false; addLog(d,'🏝️ 무인도 도착! 2턴 쉬어요 (더블이면 탈출)',id); }
+  } else if(c.t==='fundpay'){ addLog(d,`복지기금 ${won(FUND)} 납부`,id); pay(d,id,FUND,'fund'); }
+  else if(c.t==='fundget'){ if(d.fund>0){ addLog(d,`💰 복지기금 ${won(d.fund)} 획득!`,id); gain(d,id,d.fund); d.fund=0; } else addLog(d,'복지기금이 비어 있어요',id); }
+  else if(c.t==='space'){ p.space=true; d.again=false; addLog(d,'🚀 우주여행! 다음 차례에 원하는 칸으로 날아가요',id); }
+}
+function checkEnd(d){
+  const a=alive(d);
+  if(a.length<=1){ d.status='ended'; d.rank=rankOf(d); addLog(d,'게임 종료! 우승: '+d.players[d.rank[0]].name); return true; }
+  return false;
+}
+function rankOf(d){ return d.order.slice().sort((x,y)=>(d.ps[y].alive-d.ps[x].alive)||(assets(d,y)-assets(d,x))); }
+function endTurn(d){
+  d.again=false; d.dbl=0; d.pending=null;
+  if(checkEnd(d)) return;
+  let t=d.turn; do{ t=(t+1)%d.order.length; }while(!d.ps[d.order[t]].alive);
+  if(t<=d.turn){ d.round++;
+    if(d.opts.rounds && d.round>d.opts.rounds){ d.status='ended'; d.rank=rankOf(d); addLog(d,`${d.opts.rounds}라운드 종료! 자산 1위: ${d.players[d.rank[0]].name}`); return; } }
+  d.turn=t; d.phase=d.ps[d.order[t]].space?'space':'roll';
+}
+function finish(d){
+  const id=d.order[d.turn];
+  if(checkEnd(d)) return;
+  if(!d.ps[id].alive){ endTurn(d); return; }
+  if(d.again && d.ps[id].island===0 && !d.ps[id].space){ d.phase='roll'; addLog(d,'더블! 한 번 더 굴려요',id); }
+  else endTurn(d);
+}
+function newLast(d,o){ d.last=Object.assign({seq:(G.v||0)+1,by:myId,path:[],ev:[],from:d.ps[myId].pos},o); }
+async function doRoll(){
+  if(curId()!==myId||G.phase!=='roll'||G.status!=='playing') return;
+  const d=clone(G), p=d.ps[myId];
+  const a=1+rnd(6), b=1+rnd(6), dbl=a===b;
+  newLast(d,{dice:[a,b]});
+  addLog(d,`🎲 ${a} + ${b} = ${a+b}${dbl?' (더블)':''}`,myId);
+  if(p.island>0){
+    if(dbl){ p.island=0; addLog(d,'더블! 무인도 탈출',myId); moveSteps(d,myId,a+b); d.again=false; land(d,myId); }
+    else { p.island--; addLog(d,`무인도에서 쉬는 중… (${p.island}턴 남음)`,myId); endTurn(d); return commit(d); }
+  } else {
+    d.dbl=dbl?(d.dbl||0)+1:0;
+    if(d.dbl>=3){ addLog(d,'더블 3번! 과속으로 무인도행',myId); goTo(d,myId,8,false); p.island=2; d.dbl=0; endTurn(d); return commit(d); }
+    d.again=dbl; moveSteps(d,myId,a+b); land(d,myId);
+  }
+  if(!d.pending) finish(d); else d.phase='decide';
+  commit(d);
+}
+async function doDecide(choice){
+  const d=clone(G), pend=d.pending; if(!pend||curId()!==myId) return;
+  const p=d.ps[myId], i=pend.cell, c=CELLS[i];
+  newLast(d,{type:'decide'}); d.last.from=p.pos;
+  if(pend.type==='buy' && choice>=0){
+    pay(d,myId,c.p,null); d.own[i]={o:myId,lv:0}; addLog(d,`${c.n} 구매 (${won(c.p)})`,myId); d.last.buy=i;
+  } else if(pend.type==='build' && choice>0){
+    const o=d.own[i]; let cost=0; for(let k=o.lv+1;k<=choice;k++) cost+=bcost(i,k);
+    pay(d,myId,cost,null); o.lv=choice; addLog(d,`${c.n}에 ${BLD[choice]}까지 건설 (${won(cost)})`,myId); d.last.buy=i;
+  } else addLog(d,`${c.n} — 그냥 지나가요`,myId);
+  d.pending=null; finish(d); closeModal(); commit(d);
+}
+async function doSpace(dest){
+  if(curId()!==myId||G.phase!=='space') return;
+  const d=clone(G), p=d.ps[myId];
+  newLast(d,{fly:true}); p.space=false;
+  addLog(d,`🚀 ${CELLS[dest].n}(으)로 우주여행!`,myId);
+  stepTo(d,myId,dest,true); land(d,myId);
+  if(!d.pending) finish(d); else d.phase='decide';
+  commit(d);
+}
+
+// ===================== 그리기 =====================
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function dieHTML(n,cls=''){ return `<div class="die ${cls}">${[...Array(9)].map((_,k)=>`<i class="${PIPS[n].includes(k)?'on':''}"></i>`).join('')}</div>`; }
+let anim={}, lastSeen=null, animTimers=[];
+function cellHTML(i){
+  const c=CELLS[i], [r,col]=rc(i), o=G.own?.[i];
+  const pos=`grid-row:${r+1};grid-column:${col+1}`;
+  const pick = G.phase==='space' && curId()===myId && i!==24 ? 'pick':'';
+  if(['start','island','space','fundget'].includes(c.t)) return `<div class="cell corner ${pick}" data-cell="${i}" style="${pos}"><div class="ic">${c.ic}</div><div class="nm">${c.n}</div></div>`;
+  if(c.t==='luck') return `<div class="cell luck ${pick}" data-cell="${i}" style="${pos}"><div class="ic">${c.ic}</div><div class="nm">행운카드</div></div>`;
+  if(c.t==='fundpay') return `<div class="cell fund ${pick}" data-cell="${i}" style="${pos}"><div class="ic">${c.ic}</div><div class="nm">기금 납부</div></div>`;
+  const own=o?`own" style="${pos};--oc:${pcol(o.o)}`:`" style="${pos}`;
+  return `<div class="cell ${c.t==='tour'?'tour':''} ${pick} ${own}" data-cell="${i}"><div class="band" style="background:${c.t==='city'?GC[c.g]:''}"></div><div class="nm">${c.ic||''}${c.n}</div>
+    ${o?`<div class="bd">${BIC[o.lv]||''}</div><div class="pr" style="margin-top:0">${won(rentOf(i,o.lv))}</div>`:`<div class="pr">${won(c.p)}</div>`}</div>`;
+}
+function tokPos(id,cell){
+  const [r,c]=rc(cell); const k=G.order.indexOf(id);
+  const cs=100/9; const ox=[18,52,18,52,35][k], oy=[38,38,70,70,54][k];
+  return {left:`calc(${c*cs}% + ${cs*ox/100}% - 7px)`, top:`calc(${r*cs}% + ${cs*oy/100}% - 7px)`};
+}
+function render(prev){
+  if(!G) return;
+  if(G.status==='lobby') return renderLobby();
+  const cur=curId(), me=G.ps[myId], my=cur===myId&&G.status==='playing';
+  const L=G.last;
+  if(L && lastSeen!==null && L.seq>lastSeen && L.path && L.path.length){ anim[L.by]=L.from; }
+  let act='';
+  if(G.status==='ended') act='';
+  else if(my&&G.phase==='roll') act=`<button class="btn" id="roll">🎲 주사위 굴리기</button>${me.island?`<div class="tiny">무인도 ${me.island}턴 남음 · 더블이면 탈출</div>`:''}`;
+  else if(my&&G.phase==='space') act=`<div style="color:var(--accent);font-weight:800">🚀 날아갈 칸을 탭하세요</div>`;
+  else if(my&&G.phase==='decide') act=`<button class="btn" id="dec">땅/건물 선택하기</button>`;
+  else act=`<div class="muted">${esc(nameOf(cur))}의 차례…</div>`;
+  const dice=L&&L.dice?L.dice:[1,1];
+  const pcs=G.order.map(id=>{const p=G.ps[id]; const n=Object.values(G.own).filter(o=>o.o===id).length;
+    return `<div class="pc ${id===cur&&G.status==='playing'?'cur':''} ${p.alive?'':'dead'}" data-pid="${id}" style="--pc:${pcol(id)}">
+      <div class="n"><span>${esc(nameOf(id))}${id===myId?' (나)':''}</span><span class="tiny">${p.alive?(p.island?'🏝️'+p.island:'')+(p.space?'🚀':'')+(p.free?'🎫'+p.free:'')+(p.escape?'🗝️'+p.escape:''):'파산'}</span></div>
+      <div class="cash">${won(p.cash)}</div><div class="sub2">땅 ${n}곳 · 총자산 ${won(assets(G,id))}</div></div>`}).join('');
+  const toks=G.order.filter(id=>G.ps[id].alive).map(id=>{const pos=anim[id]!==undefined?anim[id]:G.ps[id].pos; const t=tokPos(id,pos);
+    return `<div class="tk ${id===myId?'me':''}" id="tk-${id}" style="background:${pcol(id)};left:${t.left};top:${t.top}"></div>`}).join('');
+  let endBox='';
+  if(G.status==='ended') endBox=endBoxHTML(G.rank.map(id=>({id,txt:G.ps[id].alive?`총자산 ${won(assets(G,id))}`:'파산'})));
+  $('#app').innerHTML=`
+    <div class="topbar"><div><div class="turn ${my?'me':''}">${G.status==='ended'?'게임 종료':my?'내 차례!':esc(nameOf(cur))+'의 차례'}</div>
+      <div class="tiny">방 ${esc(G.code)} · <span class="net">${esc(netState)}</span> · ${G.round}${G.opts.rounds?'/'+G.opts.rounds:''}라운드</div></div>
+      <button class="btn sec sm" id="menu">메뉴</button></div>
+    ${endBox}
+    <div class="board" id="board">${CELLS.map((_,i)=>cellHTML(i)).join('')}
+      <div class="center"><div class="title">세계여행 부자왕</div>
+        <div class="fund">💰 복지기금 ${won(G.fund)}</div>
+        <div class="dice" id="dice">${dieHTML(dice[0],L&&L.dice&&dice[0]===dice[1]?'dbl':'')}${dieHTML(dice[1],L&&L.dice&&dice[0]===dice[1]?'dbl':'')}</div>
+        <div class="act">${act}</div>
+        <div class="cl">${(G.log||[]).slice(-2).reverse().map(l=>l.p?`<span style="color:${pcol(l.p)}">${esc(nameOf(l.p))}</span> ${esc(l.t)}`:esc(l.t)).join('<br>')}</div>
+      </div>${toks}</div>
+    <div class="players">${pcs}</div>
+    <div class="log">${(G.log||[]).slice().reverse().map(logHTML).join('')}</div>`;
+  $('#menu').onclick=()=>{ openMenu(G.host===myId&&G.status==='playing'?'<button class="btn sec" id="m-skip">현재 차례 건너뛰기 (자리 비움)</button>':''); $('#m-skip')&&($('#m-skip').onclick=async()=>{const d=clone(G);d.last=null;addLog(d,'차례 건너뜀',curId());endTurn(d);closeModal();commit(d);}); };
+  $('#roll')&&($('#roll').onclick=()=>{ $('#roll').disabled=true; doRoll(); });
+  $('#dec')&&($('#dec').onclick=openDecide);
+  $('#again')&&($('#again').onclick=restartToLobby);
+  document.querySelectorAll('[data-cell]').forEach(el=>el.onclick=()=>{ const i=+el.dataset.cell; if(G.phase==='space'&&curId()===myId&&G.status==='playing'){ if(i===24) return toast('우주여행 칸 말고 다른 칸을 골라 주세요'); doSpace(i); } else cellInfo(i); });
+  // 애니메이션
+  if(L && (lastSeen===null)){ lastSeen=L.seq; }
+  else if(L && L.seq>lastSeen){ lastSeen=L.seq; playAnim(L); }
+  else if(!L && lastSeen===null) lastSeen=0;
+  if(my && G.phase==='decide' && G.pending && !$('#modal').innerHTML) setTimeout(()=>{ if(G.phase==='decide'&&curId()===myId&&!$('#modal').innerHTML) openDecide(); }, animBusy?animDelay:200);
+}
+let animBusy=false, animDelay=0;
+function playAnim(L){
+  animTimers.forEach(clearTimeout); animTimers=[];
+  let t=0; animBusy=true;
+  if(L.dice){
+    const dd=$('#dice'); if(dd){ let k=0; const iv=setInterval(()=>{ dd.innerHTML=dieHTML(1+rnd(6),'roll')+dieHTML(1+rnd(6),'roll'); if(++k>7){ clearInterval(iv); dd.innerHTML=dieHTML(L.dice[0],L.dice[0]===L.dice[1]?'dbl':'')+dieHTML(L.dice[1],L.dice[0]===L.dice[1]?'dbl':''); } },70); }
+    t=650;
+  }
+  if(L.path && L.path.length){
+    const id=L.by; const step = L.fly||L.jump ? 0 : 170;
+    if(L.fly||L.jump){ animTimers.push(setTimeout(()=>{ anim[id]=L.path[L.path.length-1]; moveTok(id,true); delete anim[id]; },t+200)); t+=500; }
+    else L.path.forEach((pos,k)=>animTimers.push(setTimeout(()=>{ anim[id]=pos; moveTok(id,false); if(k===L.path.length-1) delete anim[id]; },t+k*step)));
+    t+=L.path.length*step;
+  } else delete anim[L.by];
+  animTimers.push(setTimeout(()=>{
+    if(L.card!==undefined) luckPop(L.card);
+    const done={};
+    (L.ev||[]).forEach(e=>{ const key=e.id; done[key]=(done[key]||0)+e.amt; });
+    Object.entries(done).forEach(([id,amt],k)=>{ if(!amt) return; setTimeout(()=>{ const el=document.querySelector(`.pc[data-pid="${id}"]`); floatAt(el,(amt>0?'+':'')+won(amt),amt>0?'#5fd38d':'#ff6b6b'); if(amt<0) shakeEl(el); else pulseEl(el,pcol(id)); },k*150); });
+    const last=(G.log||[]).filter(l=>l.p===L.by).slice(-1)[0]; if(last) banner(L.by,last.t);
+    animBusy=false;
+  },t));
+  animDelay=t+300;
+}
+function moveTok(id,fly){
+  const el=document.getElementById('tk-'+id); if(!el) return;
+  const pos=anim[id]!==undefined?anim[id]:G.ps[id].pos; const t=tokPos(id,pos);
+  el.style.left=t.left; el.style.top=t.top;
+  el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop');
+  if(fly){ el.style.transition='left .45s ease, top .45s ease'; setTimeout(()=>el.style.transition='',500); }
+}
+function luckPop(k){
+  const L=LUCK[k]; const el=document.createElement('div'); el.className='luckpop';
+  el.innerHTML=`<div class="luckcard"><div style="font-size:30px">🍀</div><b>${esc(L.t)}</b>${esc(L.s)}</div>`;
+  document.body.appendChild(el); setTimeout(()=>el.remove(),2500);
+}
+function cellInfo(i){
+  const c=CELLS[i], o=G.own[i];
+  if(c.t!=='city'&&c.t!=='tour'){
+    const desc={start:`지나가거나 도착하면 월급 ${won(SALARY)}`,luck:'행운카드를 1장 뽑아요',island:'2턴 쉬어요. 주사위 더블이면 탈출',fundpay:`복지기금 ${won(FUND)}을 내요`,fundget:'모인 복지기금을 모두 가져가요',space:'다음 차례에 원하는 칸으로 날아가요'}[c.t];
+    return openModal(`<h3>${c.ic} ${c.n}</h3><p class="muted">${desc}</p><button class="btn sec" id="x">닫기</button>`), $('#x').onclick=closeModal;
+  }
+  openModal(`<div class="decide"><div class="cityhd" style="border-top:6px solid ${c.t==='city'?GC[c.g]:'#1f9d63'}"><b style="font-size:18px">${c.ic||''}${c.n}</b> <span class="tiny" style="color:#6b5a50">${c.t==='tour'?'관광지 (건물 없음)':'도시'}</span>
+    <div>땅값 ${won(c.p)} · 주인 ${o?`<b style="color:${pcol(o.o)}">${esc(nameOf(o.o))}</b> (${BLD[o.lv]})`:'없음'}</div></div>
+    ${rentTable(i)}</div><button class="btn sec" id="x">닫기</button>`); $('#x').onclick=closeModal;
+}
+function rentTable(i){
+  const c=CELLS[i];
+  if(c.t==='tour') return `<table><tr><td>통행료</td><td>${won(c.r)}</td></tr></table>`;
+  return `<table><tr><td></td><td>건설비</td><td>통행료</td></tr>${[0,1,2,3].map(k=>`<tr><td>${BIC[k]} ${BLD[k]}</td><td>${k?won(bcost(i,k)):won(c.p)}</td><td><b>${won(rentOf(i,k))}</b></td></tr>`).join('')}</table>`;
+}
+function openDecide(){
+  const pend=G.pending; if(!pend) return; const i=pend.cell, c=CELLS[i], p=G.ps[myId];
+  let btns='';
+  if(pend.type==='buy') btns=`<button class="btn" data-ch="0">${c.n} 사기 (${won(c.p)})</button>`;
+  else { const o=G.own[i]; let cost=0; for(let k=o.lv+1;k<=3;k++){ cost+=bcost(i,k); btns+=`<button class="btn" data-ch="${k}" ${p.cash<cost?'disabled':''}>${BIC[k]} ${BLD[k]}까지 짓기 (${won(cost)})</button>`; } }
+  openModal(`<div class="decide"><h3>${pend.type==='buy'?'땅을 살까요?':'건물을 지을까요?'}</h3>
+    <div class="cityhd" style="border-top:6px solid ${c.t==='city'?GC[c.g]:'#1f9d63'}"><b style="font-size:18px">${c.ic||''}${c.n}</b><div>내 돈 ${won(p.cash)}</div></div>
+    ${rentTable(i)}</div>${btns}<button class="btn sec" data-ch="-1">안 사고 넘어가기</button>`, true);
+  document.querySelectorAll('[data-ch]').forEach(el=>el.onclick=()=>{ document.querySelectorAll('[data-ch]').forEach(b=>b.disabled=true); doDecide(+el.dataset.ch); });
+}
+
+boot({
+  id:'marble', title:'세계여행 부자왕', sub:'주사위 굴려 세계를 돌며 땅을 사고 건물을 올려요 · 2~4인', min:2, max:4,
+  rules:`<li>주사위 2개를 굴려 이동. <b>더블</b>이면 한 번 더 (3번 연속이면 무인도).</li>
+    <li>빈 땅에 도착하면 살 수 있고, 내 땅에 다시 오면 별장 → 빌딩 → 호텔을 지을 수 있어요.</li>
+    <li>남의 땅에 서면 통행료! 돈이 모자라면 내 땅이 자동으로 반값에 팔리고, 그래도 모자라면 파산.</li>
+    <li>🍀 행운카드 · 🏝️ 무인도(2턴 휴식) · 🚀 우주여행(원하는 칸으로) · 💰 복지기금(모인 돈 획득)</li>
+    <li>출발을 지날 때마다 월급 ${SALARY}만원. 마지막 1명이 남거나, 정한 라운드가 끝나면 총자산 1위가 승리.</li>`,
+  defaultOpts:()=>({rounds:20}),
+  lobbyOpts:(G,host)=>`<div class="muted opt-t">게임 길이 ${host?'':'(방장이 정해요)'}</div>${optButtons(G,host,'rounds',[[12,'12라운드','짧게'],[20,'20라운드','보통'],[0,'무제한','파산할 때까지']])}`,
+  setup:d=>{
+    d.ps=Object.fromEntries(d.order.map(id=>[id,{pos:0,cash:START_CASH,alive:true,island:0,space:false,free:0,escape:0}]));
+    d.own={}; d.fund=0; d.phase='roll'; d.pending=null; d.again=false; d.dbl=0;
+    d.luck=shuffle(LUCK.map((_,k)=>k));
+    addLog(d,`게임 시작! 시작 자금 ${won(START_CASH)}`+(d.opts.rounds?` · ${d.opts.rounds}라운드`:''));
+  },
+  render,
+});
+</script>
+</body>
+</html>
