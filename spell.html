@@ -60,6 +60,29 @@ body{background:radial-gradient(ellipse at top,#2b1f4a 0%,#130f1d 65%)}
 .secret{display:flex;gap:4px;align-items:center;justify-content:center;margin-top:4px}
 .res .row{justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)}
 .wait{padding:10px;text-align:center;color:var(--dim)}
+
+/* 용용이의 분노 이펙트 */
+.dfx{position:fixed;inset:0;z-index:97;pointer-events:none;overflow:hidden;animation:dfxbg 2.7s ease forwards}
+@keyframes dfxbg{0%{background:rgba(40,0,0,0)}10%{background:rgba(45,0,0,.86)}75%{background:rgba(45,4,0,.8)}100%{background:rgba(0,0,0,0)}}
+.dfx canvas{position:absolute;inset:0;width:100%;height:100%}
+.dfx-flash{position:absolute;inset:0;background:radial-gradient(circle at 50% 55%,#fff6c8,#ff8a00 35%,transparent 70%);opacity:0;animation:dfxfl 2.7s ease}
+@keyframes dfxfl{0%,8%{opacity:0}12%{opacity:.95}22%{opacity:.25}40%{opacity:.5}55%{opacity:.15}100%{opacity:0}}
+.dfx-dragon{position:absolute;left:0;top:62%;font-size:150px;line-height:1;filter:drop-shadow(0 0 24px #ff5a00) drop-shadow(0 0 6px #ffd000);animation:dfxdr 2.7s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes dfxdr{0%{transform:translate(-60vw,-50%) scale(.5) rotate(-15deg)}26%{transform:translate(4vw,-62%) scale(1.15) rotate(6deg)}34%{transform:translate(2vw,-58%) scale(1.05) rotate(-4deg)}42%{transform:translate(4vw,-62%) scale(1.12) rotate(5deg)}50%{transform:translate(2vw,-58%) scale(1.06) rotate(-3deg)}80%{transform:translate(6vw,-60%) scale(1.1);opacity:1}100%{transform:translate(120vw,-90%) scale(.7) rotate(12deg);opacity:0}}
+.dfx-txt{position:absolute;left:0;right:0;top:16%;text-align:center}
+.dfx-who{font-size:16px;font-weight:800;color:#ffe0b0;text-shadow:0 2px 6px #000;opacity:0;animation:dfxin .4s .3s forwards}
+.dfx-title{font-family:'Black Han Sans';font-size:48px;line-height:1.1;background:linear-gradient(180deg,#fff7c2 0%,#ffcc00 35%,#ff6a00 65%,#c40000 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 12px rgba(255,90,0,.9)) drop-shadow(0 3px 0 #5a0000);opacity:0;animation:dfxti 2.6s .35s forwards}
+@keyframes dfxti{0%{transform:scale(3.2) rotate(-6deg);opacity:0}12%{transform:scale(.92) rotate(2deg);opacity:1}18%{transform:scale(1.05) rotate(-1deg)}24%,30%,36%{transform:translateX(-4px)}27%,33%{transform:translateX(4px)}40%{transform:none}85%{opacity:1}100%{transform:scale(1.15);opacity:0}}
+@keyframes dfxin{to{opacity:1}}
+.dfx-roll{margin-top:14px;font-size:18px;font-weight:900;color:#fff;text-shadow:0 2px 6px #000;opacity:0;animation:dfxin .3s .6s forwards}
+.dfx-die{display:inline-block;width:46px;height:46px;line-height:46px;border-radius:10px;background:#fff;color:#c40000;font-size:28px;margin-left:6px;box-shadow:0 0 18px #ff8a00;animation:dr .1s linear 9}
+.dfx-die.done{animation:dfxpop .5s ease}
+@keyframes dfxpop{0%{transform:scale(1)}40%{transform:scale(1.6);box-shadow:0 0 40px #ffcc00}100%{transform:scale(1)}}
+.dfx-dmg{margin-top:10px;font-family:'Black Han Sans';font-size:34px;color:#ff4d4d;text-shadow:0 0 14px #ff0000,0 3px 0 #300;opacity:0;animation:dfxdmg 1.6s 1.25s forwards}
+@keyframes dfxdmg{0%{transform:scale(.3);opacity:0}25%{transform:scale(1.3);opacity:1}40%{transform:scale(1)}85%{opacity:1}100%{opacity:0}}
+#app.quake{animation:quake 1.4s .3s}
+@keyframes quake{0%,100%{transform:none}10%{transform:translate(-7px,3px)}20%{transform:translate(6px,-4px)}30%{transform:translate(-5px,-2px)}40%{transform:translate(5px,4px)}50%{transform:translate(-4px,2px)}60%{transform:translate(3px,-3px)}70%{transform:translate(-2px,2px)}80%{transform:translate(2px,-1px)}}
+.pl.burn{box-shadow:0 0 0 2px #ff6a00 inset,0 0 22px #ff3d00;background:linear-gradient(0deg,rgba(255,90,0,.35),var(--panel) 70%)}
 </style>
 </head>
 <body>
@@ -227,18 +250,76 @@ function playAnim(La){
   if(La.round){ banner(null,`${G.roundNo}라운드 시작!`); return; }
   if(La.pass){ banner(La.by,'차례를 마쳤어요'); return; }
   const n=La.n, s=SP[n];
-  const el=document.createElement('div'); el.className='cast-pop';
-  el.innerHTML=`<div class="cast-card" style="--c:${s.c}"><div class="ic">${s.ic}</div><div class="tiny" style="color:#fff">${esc(nameOf(La.by))}${La.by===myId?' (나)':''}의 주문</div><div class="t">${n}. ${esc(s.n)}</div>
-    <div class="r ${La.ok?'ok':'fail'}">${La.ok?'성공!':'실패…'}</div>${La.roll?`<div class="dd">주사위 <span class="dieb" id="dieb">?</span></div>`:''}</div>`;
-  document.body.appendChild(el); setTimeout(()=>el.remove(),2350);
-  if(La.roll){ let k=0; const iv=setInterval(()=>{ const d=$('#dieb'); if(!d){clearInterval(iv);return} d.textContent=++k>6?La.roll:1+rnd(6); if(k>6) clearInterval(iv); },80); }
+  const dragon = n===1 && La.ok;
+  if(dragon) dragonFX(La);
+  else {
+    const el=document.createElement('div'); el.className='cast-pop';
+    el.innerHTML=`<div class="cast-card" style="--c:${s.c}"><div class="ic">${s.ic}</div><div class="tiny" style="color:#fff">${esc(nameOf(La.by))}${La.by===myId?' (나)':''}의 주문</div><div class="t">${n}. ${esc(s.n)}</div>
+      <div class="r ${La.ok?'ok':'fail'}">${La.ok?'성공!':'실패…'}</div>${La.roll?`<div class="dd">주사위 <span class="dieb" id="dieb">?</span></div>`:''}</div>`;
+    document.body.appendChild(el); setTimeout(()=>el.remove(),2350);
+    if(La.roll){ let k=0; const iv=setInterval(()=>{ const d=$('#dieb'); if(!d){clearInterval(iv);return} d.textContent=++k>6?La.roll:1+rnd(6); if(k>6) clearInterval(iv); },80); }
+  }
   const tile=document.querySelector(`[data-sp="${n}"]`); if(tile&&La.ok){ tile.classList.add('flash'); }
   setTimeout(()=>{
     Object.entries(La.dmg||{}).forEach(([id,v],i)=>setTimeout(()=>{
       const c=document.querySelector(`.pl[data-pid="${id}"]`);
+      if(dragon && v<0){ c&&c.classList.add('burn'); setTimeout(()=>c&&c.classList.remove('burn'),1400); }
       floatAt(c,(v>0?'+':'')+v+' ❤️',v>0?'#5fd38d':'#ff6b6b'); if(v<0) shakeEl(c); else pulseEl(c,'#5fd38d');
     },i*120));
-  },900);
+  }, dragon?2300:900);
+}
+
+// ===================== 용용이의 분노 특수 이펙트 =====================
+function dragonFX(La){
+  const wrap=document.createElement('div'); wrap.className='dfx';
+  const who=esc(nameOf(La.by))+(La.by===myId?' (나)':'');
+  wrap.innerHTML=`<canvas></canvas><div class="dfx-flash"></div>
+    <div class="dfx-dragon">🐉</div>
+    <div class="dfx-txt"><div class="dfx-who">${who}의</div><div class="dfx-title">용용이의 분노!!</div>
+      <div class="dfx-roll">주사위 <span class="dfx-die">?</span></div><div class="dfx-dmg">모두 -${La.roll} ❤️</div></div>`;
+  document.body.appendChild(wrap);
+  const app=$('#app'); app.classList.remove('quake'); void app.offsetWidth; app.classList.add('quake');
+  setTimeout(()=>app.classList.remove('quake'),1600);
+  try{ navigator.vibrate&&navigator.vibrate([80,40,160,40,240]); }catch(e){}
+  // 주사위 굴리기
+  let k=0; const iv=setInterval(()=>{ const d=wrap.querySelector('.dfx-die'); if(!d){clearInterval(iv);return} d.textContent=++k>9?La.roll:1+rnd(6); if(k>9){ clearInterval(iv); d.classList.add('done'); } },70);
+  // 불꽃 파티클 (캔버스)
+  const cv=wrap.querySelector('canvas'), ctx=cv.getContext('2d');
+  const W=cv.width=innerWidth*devicePixelRatio, H=cv.height=innerHeight*devicePixelRatio, D=devicePixelRatio;
+  const P=[]; const t0=performance.now();
+  function mouth(t){ // 용 입 위치 (용 이동 경로를 따라감)
+    const p=Math.min(1,t/700); const x=(-0.15+0.45*easeOut(p))*W, y=(0.62-0.12*easeOut(p))*H;
+    return [x+70*D, y-10*D];
+  }
+  function easeOut(x){ return 1-Math.pow(1-x,3); }
+  function spawn(t){
+    const [mx,my]=mouth(t);
+    for(let i=0;i<14;i++){
+      const a=(-0.35+Math.random()*0.5), sp=(9+Math.random()*13)*D;
+      P.push({x:mx,y:my,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2*D,life:0,max:38+Math.random()*30,r:(6+Math.random()*16)*D});
+    }
+    if(Math.random()<.4) for(let i=0;i<6;i++) P.push({x:Math.random()*W,y:H+10,vx:(Math.random()-.5)*2*D,vy:-(4+Math.random()*6)*D,life:0,max:70,r:(2+Math.random()*4)*D,ember:1});
+  }
+  function frame(now){
+    const t=now-t0;
+    ctx.clearRect(0,0,W,H);
+    if(t>250 && t<1700) spawn(t);
+    ctx.globalCompositeOperation='lighter';
+    for(let i=P.length-1;i>=0;i--){
+      const q=P[i]; q.life++; q.x+=q.vx; q.y+=q.vy; q.vy-=q.ember?0:0.12*D; q.vx*=0.985;
+      const f=q.life/q.max; if(f>=1){ P.splice(i,1); continue; }
+      const r=q.r*(q.ember?1:(0.6+f*1.6));
+      const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,r);
+      const hue=q.ember?40:(50-f*45);
+      g.addColorStop(0,`hsla(${hue},100%,${q.ember?75:70-f*20}%,${(1-f)*0.95})`);
+      g.addColorStop(.45,`hsla(${hue-10},100%,50%,${(1-f)*0.55})`);
+      g.addColorStop(1,'hsla(0,100%,40%,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(q.x,q.y,r,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalCompositeOperation='source-over';
+    if(t<2700) requestAnimationFrame(frame); else wrap.remove();
+  }
+  requestAnimationFrame(frame);
 }
 
 boot({
