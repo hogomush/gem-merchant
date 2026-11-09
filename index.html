@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>친구랑 보드게임</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#17131f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="보드게임">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<script>if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
+
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="common.css">
 <style>
@@ -29,6 +39,11 @@
     <a class="g" href="spell.html" style="--c:#d63031"><div class="art">🐉</div><div><div class="t">용용이의 분노</div><div class="d">내 돌만 안 보이는 마법 대결! 남의 돌을 보고 추리해 주문을 외워요</div><div class="m"><span>2~5인</span><span>20분</span><span>추리·눈치</span></div></div></a>
     <a class="g" href="sabo.html" style="--c:#8a5a2b"><div class="art">⛏️</div><div><div class="t">황금 광산</div><div class="d">광부는 황금까지 굴을 잇고, 숨은 방해꾼은 몰래 막는 마피아식 카드 게임</div><div class="m"><span>3~10인</span><span>30분</span><span>정체 숨기기·협력</span></div></div></a>
   </div>
+  <div class="card-box" id="inst" style="text-align:center;display:none">
+    <div style="font-size:15px;font-weight:800">📲 폰에 앱으로 설치하기</div>
+    <div class="muted" id="inst-t" style="margin-top:4px"></div>
+    <button class="btn" id="inst-b" style="display:none">홈 화면에 설치</button>
+  </div>
   <div class="card-box foot muted">
     <b style="color:var(--text)">하는 법</b><br>
     1. 한 명이 게임을 골라 <b>새 방 만들기</b><br>
@@ -37,5 +52,21 @@
     <span class="tiny">방장 폰이 서버 역할을 하니 게임 중엔 방장 화면을 켜 두세요.</span>
   </div>
 </div>
+<script>
+(function(){
+  const box=document.getElementById('inst'), t=document.getElementById('inst-t'), b=document.getElementById('inst-b');
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if(standalone) return; // 이미 앱으로 실행 중
+  const ua=navigator.userAgent, ios=/iPhone|iPad|iPod/.test(ua), kakao=/KAKAOTALK/i.test(ua), insta=/Instagram|FBAN|FBAV|NAVER/i.test(ua);
+  box.style.display='block';
+  if(kakao||insta){ t.innerHTML='지금은 카톡/앱 안의 브라우저예요. 오른쪽 아래(또는 위) <b>⋯ 메뉴 → 다른 브라우저로 열기</b>를 누른 뒤 설치해 주세요.'; return; }
+  if(ios){ t.innerHTML='Safari 아래쪽 <b>공유 버튼(□↑)</b> → <b>홈 화면에 추가</b>를 누르면 앱처럼 설치돼요.'; return; }
+  t.innerHTML='크롬 오른쪽 위 <b>⋮ 메뉴 → 앱 설치</b>(또는 홈 화면에 추가)를 눌러도 돼요.';
+  let ev=null;
+  addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); ev=e; b.style.display='block'; t.textContent='버튼 한 번이면 홈 화면에 아이콘이 생겨요.'; });
+  b.onclick=async()=>{ if(!ev) return; ev.prompt(); const r=await ev.userChoice; if(r.outcome==='accepted'){ box.style.display='none'; } ev=null; };
+  addEventListener('appinstalled',()=>{ box.style.display='none'; });
+})();
+</script>
 </body>
 </html>

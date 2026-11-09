@@ -1,0 +1,17 @@
+{
+  "name": "친구랑 보드게임",
+  "short_name": "보드게임",
+  "description": "보석 상인 · 세계여행 부자왕 · 용용이의 분노 · 황금 광산 — 친구들과 폰으로 하는 보드게임",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#17131f",
+  "theme_color": "#17131f",
+  "lang": "ko",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
