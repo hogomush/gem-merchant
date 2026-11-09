@@ -159,6 +159,17 @@ input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);ba
 .op-r{font-size:17px;padding:6px 10px;margin-top:6px;border-radius:10px;border-left:5px solid var(--pc);background:var(--panel2);text-align:left;animation:opr .45s both}
 .op-r b{color:var(--pc);margin-right:6px}
 @keyframes opr{from{transform:translateX(-30px) scale(.9);opacity:0}to{transform:none;opacity:1}}
+
+.ores{display:flex;gap:5px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.ores .hl{font-size:10px;color:var(--dim);width:44px}
+.ores .gc{width:46px;cursor:pointer}
+.ores .gc .hd{height:16px}.ores .gc .p{font-size:13px;line-height:14px}.ores .gc .hd .bg{width:12px;height:12px}
+.ores .gc .cc{width:13px;height:13px;font-size:9px}
+.ores .gc .cost.g2{grid-template-columns:repeat(2,13px)}
+.oback{width:46px;aspect-ratio:3/4.1;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:'Cinzel',serif;font-size:15px;border:1px solid rgba(255,255,255,.2);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.08) 0 5px,transparent 5px 10px)}
+.oback small{font-family:'Noto Sans KR';font-size:8.5px;opacity:.85}
+.oback.t1{background-color:#2e6b3b}.oback.t2{background-color:#9a6f1c}.oback.t3{background-color:#2b4f91}
+#banner .bn b{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -605,6 +616,7 @@ function doReserve(cid){
   if(cid.startsWith('deck-')){ tier=+cid.slice(5); id=d.decks[tier].pop(); if(!id) return toast('덱이 비었어요'); txt=`${tier}단계 덱 맨 위 카드`; fromDeck=true; }
   else { tier=CARDS[cid].tier; slot=replaceOnBoard(d,cid); txt=CN[CARDS[cid].color]+' 카드'; }
   p.reserved.push(id);
+  if(fromDeck) p.blind=(p.blind||[]).concat(id);
   let gold=0; if(d.bank.y>0){ d.bank.y--; p.tokens.y++; gold=1; }
   newLast(d,{type:'reserve',card:fromDeck?null:id,tier,slot,fromDeck,gold});
   addLog(d,txt+' 예약',myId);
@@ -671,7 +683,8 @@ function render(){
     const p=G.ps[id]; const b=bonus(p);
     return `<div class="opp ${id===cur&&G.status==='playing'?'active':''}" data-pid="${id}" style="--pc:${pcol(id)}">
       <div class="opp-h"><span><i class="dot" style="background:${pcol(id)}"></i> ${esc(nameOf(id))} <span class="tiny">보석 ${tokTotal(p)} · 예약 ${p.reserved.length} · 귀족 ${p.nobles.length}</span></span><span class="pts">${points(p)}</span></div>
-      ${holdHTML(p,false)}</div>`;
+      ${holdHTML(p,false)}
+      ${p.reserved.length?`<div class="ores"><span class="hl">📌 찜</span>${p.reserved.map(cid=>(p.blind||[]).includes(cid)?`<div class="oback t${CARDS[cid].tier}" title="덱에서 예약한 카드 (비공개)">${'Ⅰ Ⅱ Ⅲ'.split(' ')[CARDS[cid].tier-1]}<small>비공개</small></div>`:cardHTML(cid,'','data-ores')).join('')}</div>`:''}</div>`;
   }).join('');
   const myAfford = cid => me && isMyTurn() && payPlan(me,CARDS[cid]) ? 'can' : '';
   const tiers=[3,2,1].map(t=>`<div class="tier">
@@ -722,6 +735,7 @@ function bind(){
   document.querySelectorAll('[data-tok]').forEach(el=>el.onclick=()=>tapToken(el.dataset.tok));
   document.querySelectorAll('#app [data-card]').forEach(el=>el.onclick=()=>openCard(el.dataset.card,'board'));
   document.querySelectorAll('[data-res]').forEach(el=>el.onclick=()=>openCard(el.dataset.res,'res'));
+  document.querySelectorAll('[data-ores]').forEach(el=>el.onclick=()=>openCard(el.dataset.ores,'opp'));
   document.querySelectorAll('[data-deck]').forEach(el=>el.onclick=()=>openDeck(el.dataset.deck));
   $('#take') && ($('#take').onclick=doTake);
   $('#clr') && ($('#clr').onclick=()=>{picks=[];render()});
@@ -804,14 +818,14 @@ function openModal(html){ $('#modal').innerHTML=`<div class="sheet-bg" id="bg"><
 function closeModal(){ $('#modal').innerHTML=''; }
 function openCard(cid, from){
   const c=CARDS[cid]; const me=G.ps[myId];
-  const my=isMyTurn() && me;
+  const my=isMyTurn() && me && from!=='opp';
   const pay = me ? payPlan(me,c) : null;
   const payTxt = pay ? Object.entries(pay).filter(([k,v])=>v).map(([k,v])=>`${CN[k]} ${v}`).join(', ') || '무료 (할인으로 충분!)' : '';
   const kind = c.tier===1?'광산':c.tier===2?(hash(cid)%2?'상선':'상단'):'도시';
   openModal(`<h3>${CN[c.color]} ${kind} · ${c.pts}점</h3>
     <div class="bigcard">${cardHTML(cid,'','data-big')}</div>
     <div class="muted" style="text-align:center">비용: ${C.filter(k=>c.cost[k]).map(k=>CN[k]+' '+c.cost[k]).join(', ')}</div>
-    ${my ? (pay?`<div class="muted" style="text-align:center;margin-top:4px">지불: ${payTxt}</div>`:`<div class="err" style="text-align:center">보석이 부족해요</div>`) : `<div class="muted" style="text-align:center;margin-top:6px">${G.status==='playing'?'내 차례가 아니에요':''}</div>`}
+    ${my ? (pay?`<div class="muted" style="text-align:center;margin-top:4px">지불: ${payTxt}</div>`:`<div class="err" style="text-align:center">보석이 부족해요</div>`) : `<div class="muted" style="text-align:center;margin-top:6px">${from==='opp'?'상대가 찜한 카드예요 (상대만 살 수 있어요)':G.status==='playing'?'내 차례가 아니에요':''}</div>`}
     ${my?`<button class="btn" id="buy" ${pay?'':'disabled'}>구매하기</button>`:''}
     ${my&&from==='board'?`<button class="btn sec" id="rsv" ${me.reserved.length>=3?'disabled':''}>예약하기 ${G.bank.y?'(+황금 1)':''}</button>`:''}
     <button class="btn sec" id="cl">닫기</button>`);
