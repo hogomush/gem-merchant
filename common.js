@@ -7,7 +7,7 @@ const shuffle = a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function toast(m){const t=$('#toast');if(!t)return;t.innerHTML='<div class="toast">'+esc(m)+'</div>';clearTimeout(toast._t);toast._t=setTimeout(()=>t.innerHTML='',2200)}
-const PCOL=['#ff9f43','#4fa3ff','#5fd38d','#f368e0','#feca57'];
+const PCOL=['#ff9f43','#4fa3ff','#5fd38d','#f368e0','#feca57','#ff6b6b','#48dbfb','#c8d6e5','#a29bfe','#1dd1a1'];
 const sleep = ms=>new Promise(r=>setTimeout(r,ms));
 
 // ===================== 공통: P2P 네트워크 (방장 폰이 서버) =====================

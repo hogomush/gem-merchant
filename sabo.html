@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>황금 광산</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+body{background:radial-gradient(ellipse at top,#3a2a1c 0%,#16110d 65%)}
+.role{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:8px;cursor:pointer}
+.role .big{font-size:26px}
+.role.hide .v{filter:blur(7px)}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.chip2{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--pc);border-radius:9px;padding:4px 7px;font-size:12px;display:flex;flex-direction:column;gap:1px;min-width:74px}
+.chip2.cur{box-shadow:0 0 0 1px var(--pc) inset;background:#33281e}
+.chip2 .tl{font-size:13px;letter-spacing:1px}
+.chip2.tgt{outline:2px solid #5fd38d;outline-offset:1px;cursor:pointer;animation:pickme 1s infinite}
+@keyframes pickme{50%{filter:brightness(1.3)}}
+.bwrap{overflow:auto;background:#0f0b08;border-radius:10px;border:1px solid #3a2c20;margin-bottom:8px;max-height:52vh;-webkit-overflow-scrolling:touch}
+.board{display:grid;gap:1px;padding:6px;width:max-content}
+.c{width:var(--cs,38px);height:var(--cs,38px);border-radius:3px;position:relative}
+.c.empty{background:rgba(255,255,255,.03)}
+.c svg{width:100%;height:100%;display:block;border-radius:4px}
+.c.ok{background:rgba(95,211,141,.28);outline:2px dashed #5fd38d;outline-offset:-2px;cursor:pointer;animation:pickme 1s infinite}
+.c.rock{outline:2px solid #ff6b6b;outline-offset:-2px;cursor:pointer;animation:pickme 1s infinite}
+.c.goalpick{outline:2px solid #4fa3ff;outline-offset:-2px;cursor:pointer;animation:pickme 1s infinite}
+.c .eye{position:absolute;right:1px;bottom:0;font-size:12px}
+.c.newc{animation:newc .6s ease-out}
+@keyframes newc{0%{transform:scale(.3) rotate(-20deg);opacity:0}70%{transform:scale(1.12)}100%{transform:none;opacity:1}}
+.hand{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 8px}
+.hc{flex:none;width:58px;height:78px;border-radius:8px;background:#2a2018;border:2px solid #4a3828;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;text-align:center;cursor:pointer;position:relative;color:#f3eee6;padding:2px}
+.hc svg{width:48px;height:48px}
+.hc.sel{border-color:var(--accent);transform:translateY(-6px);box-shadow:0 6px 14px rgba(232,185,35,.35)}
+.hc.act{background:linear-gradient(160deg,#4b3a5e,#2a2038)}
+.hc.brk{background:linear-gradient(160deg,#7a2f2f,#3a1818)}
+.hc.fix{background:linear-gradient(160deg,#2f6b46,#173823)}
+.hc .em{font-size:22px;line-height:1.1}
+.hc.dis{opacity:.45}
+.selbar{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px}
+.selbar .row{flex-wrap:wrap}
+.tgtbtn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px}
+.pop{position:fixed;inset:0;z-index:94;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.popc{width:230px;border-radius:18px;padding:18px;text-align:center;color:#fff;border:3px solid #fff;box-shadow:0 12px 40px rgba(0,0,0,.7);animation:cc 2.4s ease forwards}
+.popc .ic{font-size:52px}.popc .t{font-family:'Black Han Sans';font-size:24px}
+@keyframes cc{0%{transform:scale(.4) rotateY(90deg);opacity:0}15%{transform:scale(1.05);opacity:1}25%{transform:none}85%{opacity:1}100%{opacity:0}}
+.res .row{justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="common.js"></script>
+<script>
+// ===================== 카드 데이터 =====================
+const DX=[0,1,0,-1], DY=[-1,0,1,0], opp=d=>(d+2)%4;
+const TOOLS={pick:{ic:'⛏️',n:'곡괭이'},lamp:{ic:'🔦',n:'랜턴'},cart:{ic:'🛒',n:'수레'}};
+function buildDeck(){
+  const P=[]; const add=(e,c,n)=>{for(let i=0;i<n;i++)P.push({k:'p',e,c});};
+  add([1,1,1,1],1,5); add([1,1,1,0],1,5); add([0,1,1,1],1,5); add([1,0,1,0],1,4); add([0,1,0,1],1,3); add([0,1,1,0],1,4); add([0,0,1,1],1,5);
+  [[1,0,0,0],[0,1,0,0],[1,0,1,0],[0,1,0,1],[1,1,1,1],[1,1,1,0],[0,1,1,1],[1,1,0,0],[0,1,1,0]].forEach(e=>add(e,0,1));
+  const A=[];
+  ['pick','lamp','cart'].forEach(t=>{ for(let i=0;i<3;i++) A.push({k:'brk',t}); for(let i=0;i<2;i++) A.push({k:'fix',t:[t]}); });
+  A.push({k:'fix',t:['pick','lamp']},{k:'fix',t:['pick','cart']},{k:'fix',t:['lamp','cart']});
+  for(let i=0;i<6;i++) A.push({k:'map'}); for(let i=0;i<3;i++) A.push({k:'rock'});
+  return shuffle([...P,...A]).map((c,i)=>({...c,u:'c'+i+'_'+rnd(1e6)}));
+}
+const ROLES={3:[1,3],4:[1,4],5:[2,4],6:[2,5],7:[3,5],8:[3,6],9:[3,7],10:[4,7]};
+const HANDN=n=>n<=5?6:n<=7?5:4;
+const GOALS=[[8,-2],[8,0],[8,2]];
+const key=(x,y)=>x+','+y;
+const rot180=e=>[e[2],e[3],e[0],e[1]];
+
+// ===================== 길 연결 계산 =====================
+function reach(board){ // 시작점에서 닿는 (칸,방향) 집합
+  const R=new Set(), Q=[];
+  const enter=(x,y,d)=>{ const c=board[key(x,y)]; if(!c||c.hid) return; const k=key(x,y)+':'+d; if(R.has(k)||!c.e[d]) return;
+    if(c.c){ for(let q=0;q<4;q++) if(c.e[q]&&!R.has(key(x,y)+':'+q)){ R.add(key(x,y)+':'+q); Q.push([x,y,q]); } }
+    else { R.add(k); Q.push([x,y,d]); } };
+  const s=board['0,0']; for(let q=0;q<4;q++) if(s.e[q]){ R.add('0,0:'+q); Q.push([0,0,q]); }
+  while(Q.length){ const [x,y,d]=Q.shift(); enter(x+DX[d],y+DY[d],opp(d)); }
+  return R;
+}
+function canPlace(board,x,y,e,R){
+  if(board[key(x,y)]) return false;
+  let has=false, conn=false;
+  for(let d=0;d<4;d++){
+    const nx=x+DX[d], ny=y+DY[d], nb=board[key(nx,ny)]; if(!nb||nb.hid) continue;
+    if(!!nb.e[opp(d)]!==!!e[d]) return false;
+    has=true; if(e[d]&&R.has(key(nx,ny)+':'+opp(d))) conn=true;
+  }
+  return has&&conn;
+}
+function candidates(board,e){
+  const R=reach(board), out=[]; const ks=Object.keys(board).map(k=>k.split(',').map(Number));
+  const seen=new Set();
+  ks.forEach(([x,y])=>{ for(let d=0;d<4;d++){ const nx=x+DX[d],ny=y+DY[d],k=key(nx,ny); if(seen.has(k)) continue; seen.add(k); if(canPlace(board,nx,ny,e,R)) out.push(k); } });
+  return out;
+}
+
+// ===================== 라운드 =====================
+const curId=()=>G.order[G.turn];
+function setupRound(d){
+  const n=d.order.length, [s,m]=ROLES[Math.min(10,Math.max(3,n))];
+  const roles=shuffle([...Array(s).fill('s'),...Array(m).fill('m')]);
+  d.roles={}; d.order.forEach((id,i)=>d.roles[id]=roles[i]);
+  d.deck=buildDeck(); d.hands={}; d.broken={}; d.peek={};
+  d.order.forEach(id=>{ d.hands[id]=d.deck.splice(0,HANDN(n)); d.broken[id]={}; d.peek[id]=[]; });
+  const gold=rnd(3);
+  d.board={'0,0':{start:1,e:[1,1,1,1],c:1}};
+  GOALS.forEach(([x,y],i)=>{ d.board[key(x,y)]={goal:1,gi:i,hid:1,gold:i===gold,e:i===gold?[1,1,1,1]:(i%2?[1,0,0,1]:[0,0,1,1]),c:1}; });
+  d.phase='play'; d.turn=d.starter; d.res=null; d.last=null;
+  addLog(d,`⛏️ ${d.rnd}라운드 시작! 역할 카드를 확인하세요 · 첫 차례: ${d.players[d.order[d.starter]].name}`);
+}
+function hasBroken(d,id){ return Object.values(d.broken[id]||{}).some(Boolean); }
+function revealGoals(d,x,y){
+  const R=reach(d.board);
+  for(let q=0;q<4;q++){
+    const gx=x+DX[q], gy=y+DY[q], g=d.board[key(gx,gy)];
+    if(!g||!g.goal||!g.hid) continue;
+    const c=d.board[key(x,y)]; if(!c.e[q]||!R.has(key(x,y)+':'+q)) continue;
+    g.hid=0; const into=opp(q);
+    if(!g.gold && !g.e[into]){ const r=rot180(g.e); if(r[into]) g.e=r; }
+    d.last.reveal={gi:g.gi,gold:g.gold};
+    if(g.gold){ addLog(d,'💰 황금을 찾았어요! 광부 팀 승리!',myId); roundEnd(d,'m',myId); return; }
+    else addLog(d,'⚫ 석탄이었어요… 계속 파요',myId);
+  }
+}
+function roundEnd(d,win,finder){
+  const gains={}; d.order.forEach(id=>gains[id]=0);
+  if(win==='m'){ d.order.forEach(id=>{ if(d.roles[id]==='m') gains[id]= id===finder?3:2; }); }
+  else { const sabs=d.order.filter(id=>d.roles[id]==='s'); const per=sabs.length===1?4:sabs.length<=3?3:2; sabs.forEach(id=>gains[id]=per); }
+  d.order.forEach(id=>d.score[id]+=gains[id]);
+  d.board && Object.values(d.board).forEach(c=>{ if(c.goal) c.hid=0; });
+  d.phase='roundEnd'; d.res={win,finder,gains};
+  if(win==='s') addLog(d,'😈 카드가 다 떨어졌어요! 방해꾼 팀 승리!');
+  if(d.rnd>=d.opts.rounds){ d.status='ended'; d.rank=d.order.slice().sort((a,b)=>d.score[b]-d.score[a]); addLog(d,'게임 종료! 우승: '+d.players[d.rank[0]].name); }
+}
+function endTurn(d){
+  if(d.phase!=='play') return;
+  const me=d.order[d.turn];
+  if(d.deck.length) d.hands[me].push(d.deck.shift());
+  let t=d.turn;
+  for(let s=0;s<d.order.length;s++){ t=(t+1)%d.order.length; if(d.hands[d.order[t]].length){ d.turn=t; return; } }
+  roundEnd(d,'s',null);
+}
+function takeCard(d,u){ const h=d.hands[myId]; const i=h.findIndex(c=>c.u===u); return i<0?null:h.splice(i,1)[0]; }
+function newLast(d,o){ d.last=Object.assign({seq:(G.v||0)+1,by:myId},o); }
+async function act(kind,arg){
+  if(curId()!==myId||G.phase!=='play'||G.status!=='playing'||!sel) return;
+  const d=clone(G); const card=takeCard(d,sel.u); if(!card) return;
+  const nm=d.players;
+  if(kind==='path'){
+    const e=sel.rot?rot180(card.e):card.e; const [x,y]=arg.split(',').map(Number);
+    if(hasBroken(d,myId)||!canPlace(d.board,x,y,e,reach(d.board))) return toast('여기엔 놓을 수 없어요');
+    d.board[arg]={e,c:card.c}; newLast(d,{place:arg});
+    addLog(d,`길 카드를 놓았어요${card.c?'':' (막다른 길)'}`,myId);
+    revealGoals(d,x,y);
+  } else if(kind==='brk'){
+    d.broken[arg][card.t]=1; newLast(d,{hit:arg,tool:card.t});
+    addLog(d,`${TOOLS[card.t].ic} ${nm[arg].name}의 ${TOOLS[card.t].n}를 망가뜨렸어요!`,myId);
+  } else if(kind==='fix'){
+    const [tid,tool]=arg.split('|'); d.broken[tid][tool]=0; newLast(d,{fix:tid,tool});
+    addLog(d,`🔧 ${nm[tid].name}의 ${TOOLS[tool].n}를 고쳤어요`,myId);
+  } else if(kind==='map'){
+    d.peek[myId]=[...new Set([...(d.peek[myId]||[]),+arg])]; newLast(d,{map:+arg});
+    addLog(d,`🗺️ ${+arg+1}번 목적지를 몰래 확인했어요`,myId);
+  } else if(kind==='rock'){
+    delete d.board[arg]; newLast(d,{rock:arg}); addLog(d,'💥 낙석! 길 하나를 무너뜨렸어요',myId);
+  } else if(kind==='discard'){
+    newLast(d,{pass:1}); addLog(d,'카드 1장을 버리고 넘겼어요',myId);
+  }
+  sel=null; endTurn(d); commit(d);
+}
+async function doNextRound(){
+  if(G.phase!=='roundEnd'||G.status!=='playing') return;
+  const d=clone(G); d.rnd++; d.starter=(d.starter+1)%d.order.length; setupRound(d); d.last={seq:(G.v||0)+1,by:myId,round:1}; commit(d);
+}
+
+// ===================== 그리기 =====================
+let sel=null, lastSeen=null, roleShown=false;
+function pathSVG(e,c,opt={}){
+  const bg=opt.bg||'#6b4f3a', tn=opt.tn||'#ecd9b0';
+  let s=`<rect width="40" height="40" rx="3" fill="${bg}"/><circle cx="8" cy="31" r="2" fill="#0002"/><circle cx="31" cy="9" r="1.6" fill="#0002"/>`;
+  const end=c?20:12;
+  if(e[0]) s+=`<rect x="14" y="0" width="12" height="${c?26:end}" fill="${tn}"/>`;
+  if(e[2]) s+=`<rect x="14" y="${c?14:40-end}" width="12" height="${c?26:end}" fill="${tn}"/>`;
+  if(e[3]) s+=`<rect x="0" y="14" width="${c?26:end}" height="12" fill="${tn}"/>`;
+  if(e[1]) s+=`<rect x="${c?14:40-end}" y="14" width="${c?26:end}" height="12" fill="${tn}"/>`;
+  if(!c) s+=`<circle cx="20" cy="20" r="6" fill="#2a1d14"/><circle cx="18" cy="18" r="2" fill="#5a4030"/>`;
+  return `<svg viewBox="0 0 40 40">${s}${opt.extra||''}</svg>`;
+}
+function cellSVG(c,k){
+  if(c.start) return pathSVG(c.e,1,{bg:'#4d6b3a',extra:`<text x="20" y="25" text-anchor="middle" font-size="13">🪜</text>`});
+  if(c.goal&&c.hid){
+    const pk=(G.peek[myId]||[]).includes(c.gi);
+    return `<svg viewBox="0 0 40 40"><rect width="40" height="40" rx="3" fill="#2b4f91"/><rect x="3" y="3" width="34" height="34" rx="3" fill="none" stroke="#fff6" stroke-dasharray="3 2"/><text x="20" y="26" text-anchor="middle" font-size="${pk?16:16}" fill="#fff" font-weight="900">${pk?(c.gold?'💰':'⚫'):'?'}</text></svg>`+(pk?'<span class="eye">👁️</span>':'');
+  }
+  if(c.goal) return pathSVG(c.e,1,{bg:c.gold?'#c9952c':'#2a2420',tn:c.gold?'#ffe28a':'#6a5f58',extra:`<text x="20" y="26" text-anchor="middle" font-size="16">${c.gold?'💰':'⚫'}</text>`});
+  return pathSVG(c.e,c.c);
+}
+function cardFace(c,rot){
+  if(c.k==='p') return pathSVG(rot?rot180(c.e):c.e,c.c);
+  if(c.k==='brk') return `<div class="em">${TOOLS[c.t].ic}</div><div>${TOOLS[c.t].n}<br><b style="color:#ff9f9f">고장</b></div>`;
+  if(c.k==='fix') return `<div class="em">${c.t.map(t=>TOOLS[t].ic).join('')}</div><div>${c.t.map(t=>TOOLS[t].n).join('/')}<br><b style="color:#9dffb0">수리</b></div>`;
+  if(c.k==='map') return `<div class="em">🗺️</div><div>지도<br>목적지 엿보기</div>`;
+  if(c.k==='rock') return `<div class="em">💥</div><div>낙석<br>길 무너뜨리기</div>`;
+}
+function render(prev){
+  if(!G) return;
+  const cur=curId(), my=cur===myId&&G.phase==='play'&&G.status==='playing';
+  if(!my) sel=null;
+  const hand=G.hands[myId]||[];
+  if(sel && !hand.find(c=>c.u===sel.u)) sel=null;
+  const sc=sel?hand.find(c=>c.u===sel.u):null;
+  const broken=hasBroken(G,myId);
+  // 하이라이트 대상
+  let okCells=new Set(), rockCells=new Set(), goalCells=new Set(), tgtPlayers=[];
+  if(sc&&my){
+    if(sc.k==='p'&&!broken) candidates(G.board,sel.rot?rot180(sc.e):sc.e).forEach(k=>okCells.add(k));
+    if(sc.k==='rock') Object.entries(G.board).forEach(([k,c])=>{ if(!c.start&&!c.goal) rockCells.add(k); });
+    if(sc.k==='map') Object.entries(G.board).forEach(([k,c])=>{ if(c.goal&&c.hid) goalCells.add(k); });
+    if(sc.k==='brk') tgtPlayers=G.order.filter(id=>id!==myId&&!G.broken[id][sc.t]);
+    if(sc.k==='fix') tgtPlayers=G.order.filter(id=>sc.t.some(t=>G.broken[id][t]));
+  }
+  const ks=Object.keys(G.board).map(k=>k.split(',').map(Number));
+  const xs=ks.map(a=>a[0]), ys=ks.map(a=>a[1]);
+  const x0=Math.min(...xs)-1, x1=Math.max(...xs)+1, y0=Math.min(...ys)-1, y1=Math.max(...ys)+1;
+  const cols=x1-x0+1, avail=Math.min(innerWidth,520)-36, cs=Math.max(24,Math.min(40,Math.floor(avail/cols)-1));
+  let cells='';
+  for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+    const k=key(x,y), c=G.board[k];
+    const cls=okCells.has(k)?'ok':rockCells.has(k)?'rock':goalCells.has(k)?'goalpick':'';
+    cells+= c ? `<div class="c ${cls}" data-k="${k}">${cellSVG(c,k)}</div>` : `<div class="c empty ${cls}" data-k="${k}"></div>`;
+  }
+  const chips=G.order.map(id=>{
+    const b=G.broken[id]||{}; const tl=Object.keys(TOOLS).map(t=>b[t]?`<span title="${TOOLS[t].n} 고장" style="filter:none">${TOOLS[t].ic}❌</span>`:'').join('');
+    const isT=tgtPlayers.includes(id);
+    return `<div class="chip2 ${id===cur&&G.phase==='play'&&G.status==='playing'?'cur':''} ${isT?'tgt':''}" data-pid="${id}" style="--pc:${pcol(id)}">
+      <b>${esc(nameOf(id))}${id===myId?' (나)':''}</b><span class="tiny">카드 ${(G.hands[id]||[]).length} · ⭐${G.score[id]}${G.phase!=='play'?' · '+(G.roles[id]==='s'?'😈':'⛏️'):''}</span><span class="tl">${tl||'<span class="tiny">장비 정상</span>'}</span></div>`;
+  }).join('');
+  const role=G.roles[myId];
+  let mid='';
+  if(G.status==='ended') mid=endBoxHTML(G.rank.map(id=>({id,txt:`${G.score[id]}점`})));
+  else if(G.phase==='roundEnd'){
+    const r=G.res;
+    mid=`<div class="card-box res"><b style="font-size:16px">${G.rnd}라운드 결과 — ${r.win==='m'?'💰 광부 팀 승리!':'😈 방해꾼 팀 승리!'}</b>
+      ${r.finder?`<div class="muted">황금을 찾은 사람: <b style="color:${pcol(r.finder)}">${esc(nameOf(r.finder))}</b></div>`:''}
+      ${G.order.map(id=>`<div class="row"><span style="color:${pcol(id)}">${G.roles[id]==='s'?'😈 방해꾼':'⛏️ 광부'} · ${esc(nameOf(id))}${id===myId?' (나)':''}</span><span>+${r.gains[id]} → <b style="color:var(--accent)">${G.score[id]}점</b></span></div>`).join('')}
+      <button class="btn" id="next">다음 라운드 시작 (${G.rnd+1}/${G.opts.rounds})</button></div>`;
+  }
+  let bar='';
+  if(my){
+    if(!sc) bar=`<div class="selbar"><b style="color:var(--accent)">내 차례!</b> <span class="tiny">카드를 하나 고르세요${broken?' · 장비가 고장나 길 카드는 못 놓아요':''}</span></div>`;
+    else {
+      let tips='', btns='';
+      if(sc.k==='p'){ tips=broken?'장비가 고장나서 길 카드를 놓을 수 없어요 (버리기만 가능)':okCells.size?'초록 칸을 탭해 놓으세요':'놓을 수 있는 곳이 없어요. 돌려 보거나 버리세요'; btns=`<button class="tgtbtn" id="rot">↻ 180° 돌리기</button>`; }
+      if(sc.k==='brk') { tips=`${TOOLS[sc.t].n}를 망가뜨릴 사람을 고르세요`; btns=tgtPlayers.map(id=>`<button class="tgtbtn" data-tg="${id}" style="border-color:${pcol(id)}">${esc(nameOf(id))}</button>`).join('')||'<span class="tiny">대상이 없어요</span>'; }
+      if(sc.k==='fix') { tips='고쳐 줄 사람을 고르세요 (나도 가능)'; btns=tgtPlayers.flatMap(id=>sc.t.filter(t=>G.broken[id][t]).map(t=>`<button class="tgtbtn" data-fx="${id}|${t}" style="border-color:${pcol(id)}">${esc(nameOf(id))}${id===myId?'(나)':''} ${TOOLS[t].ic}</button>`)).join('')||'<span class="tiny">고장난 사람이 없어요</span>'; }
+      if(sc.k==='map') tips='파란 테두리 목적지 중 하나를 탭해 몰래 보세요';
+      if(sc.k==='rock') tips='빨간 테두리 길 카드 중 무너뜨릴 곳을 탭하세요';
+      bar=`<div class="selbar"><div class="tiny" style="margin-bottom:6px">${tips}</div><div class="row">${btns}<button class="tgtbtn" id="disc" style="margin-left:auto">🗑️ 버리고 넘기기</button></div></div>`;
+    }
+  } else if(G.phase==='play'&&G.status==='playing') bar=`<div class="selbar tiny">${esc(nameOf(cur))}의 차례…</div>`;
+  $('#app').innerHTML=`
+    <div class="topbar"><div><div class="turn ${my?'me':''}">${G.status==='ended'?'게임 종료':G.phase==='roundEnd'?'라운드 종료':my?'내 차례!':esc(nameOf(cur))+'의 차례'}</div>
+      <div class="tiny">방 ${esc(G.code)} · <span class="net">${esc(netState)}</span> · ${G.rnd}/${G.opts.rounds}라운드 · 남은 카드 ${G.deck.length}</div></div>
+      <button class="btn sec sm" id="menu">메뉴</button></div>
+    ${mid}
+    ${role?`<div class="role ${roleShown?'':'hide'}" id="role"><span class="big v">${role==='s'?'😈':'⛏️'}</span><div><div class="tiny">내 역할 (탭해서 ${roleShown?'숨기기':'보기'})</div><b class="v" style="font-size:16px;color:${role==='s'?'#ff8f86':'#ffe28a'}">${role==='s'?'방해꾼 — 황금에 못 가게 막으세요!':'광부 — 황금까지 길을 이으세요!'}</b></div></div>`:''}
+    <div class="chips">${chips}</div>
+    <div class="bwrap" id="bwrap"><div class="board" style="--cs:${cs}px;grid-template-columns:repeat(${x1-x0+1},${cs}px)">${cells}</div></div>
+    ${bar}
+    <div class="hand">${hand.map(c=>`<div class="hc ${c.k==='p'?'':c.k==='brk'?'brk':c.k==='fix'?'fix':'act'} ${sel&&sel.u===c.u?'sel':''} ${c.k==='p'&&broken?'dis':''}" data-u="${c.u}">${cardFace(c,sel&&sel.u===c.u&&sel.rot)}</div>`).join('')||'<span class="tiny">손에 카드가 없어요</span>'}</div>
+    <div class="log">${(G.log||[]).slice().reverse().map(logHTML).join('')}</div>`;
+  // 처음엔 시작점 근처로 스크롤
+  const bw=$('#bwrap'); if(render._sx!==undefined){ bw.scrollLeft=render._sx; bw.scrollTop=render._sy; }
+  bw.onscroll=()=>{ render._sx=bw.scrollLeft; render._sy=bw.scrollTop; };
+  $('#menu').onclick=()=>openMenu();
+  $('#role')&&($('#role').onclick=()=>{ roleShown=!roleShown; render(); });
+  $('#next')&&($('#next').onclick=()=>{ $('#next').disabled=true; doNextRound(); });
+  $('#again')&&($('#again').onclick=restartToLobby);
+  document.querySelectorAll('[data-u]').forEach(el=>el.onclick=()=>{ if(!my) return toast('내 차례가 아니에요'); const u=el.dataset.u; sel = sel&&sel.u===u ? null : {u,rot:false}; render(); });
+  $('#rot')&&($('#rot').onclick=()=>{ sel.rot=!sel.rot; render(); });
+  $('#disc')&&($('#disc').onclick=()=>act('discard'));
+  document.querySelectorAll('[data-tg]').forEach(el=>el.onclick=()=>act('brk',el.dataset.tg));
+  document.querySelectorAll('.chip2.tgt').forEach(el=>el.onclick=()=>{ if(sc.k==='brk') act('brk',el.dataset.pid); else { const t=sc.t.find(t=>G.broken[el.dataset.pid][t]); act('fix',el.dataset.pid+'|'+t); } });
+  document.querySelectorAll('[data-fx]').forEach(el=>el.onclick=()=>act('fix',el.dataset.fx));
+  document.querySelectorAll('.c.ok').forEach(el=>el.onclick=()=>act('path',el.dataset.k));
+  document.querySelectorAll('.c.rock').forEach(el=>el.onclick=()=>act('rock',el.dataset.k));
+  document.querySelectorAll('.c.goalpick').forEach(el=>el.onclick=()=>act('map',G.board[el.dataset.k].gi));
+  // 애니메이션
+  const L=G.last;
+  if(L && lastSeen!==null && L.seq>lastSeen){ lastSeen=L.seq; playAnim(L); }
+  else if(lastSeen===null) lastSeen=L?L.seq:0;
+}
+function popup(ic,t,sub,bg){
+  const el=document.createElement('div'); el.className='pop';
+  el.innerHTML=`<div class="popc" style="background:${bg}"><div class="ic">${ic}</div><div class="t">${esc(t)}</div><div>${esc(sub||'')}</div></div>`;
+  document.body.appendChild(el); setTimeout(()=>el.remove(),2500);
+}
+function playAnim(L){
+  if(L.round){ roleShown=false; render(); banner(null,`${G.rnd}라운드 시작! 내 역할을 확인하세요`); return; }
+  const last=(G.log||[]).filter(l=>l.p===L.by).slice(-1)[0]; if(last) banner(L.by,last.t);
+  if(L.place){ const el=document.querySelector(`[data-k="${L.place}"]`); el&&el.classList.add('newc'); }
+  if(L.hit){ const el=document.querySelector(`.chip2[data-pid="${L.hit}"]`); shakeEl(el); floatAt(el,TOOLS[L.tool].ic+' 고장!','#ff6b6b'); if(L.hit===myId) popup(TOOLS[L.tool].ic,'장비 고장!',`${nameOf(L.by)}이(가) ${TOOLS[L.tool].n}를 망가뜨렸어요`,'linear-gradient(160deg,#a33,#311)'); }
+  if(L.fix){ const el=document.querySelector(`.chip2[data-pid="${L.fix}"]`); pulseEl(el,'#5fd38d'); floatAt(el,'🔧 수리','#5fd38d'); }
+  if(L.rock){ banner(L.by,'💥 낙석으로 길을 무너뜨렸어요'); }
+  if(L.map!==undefined && L.by===myId){ const g=Object.values(G.board).find(c=>c.goal&&c.gi===L.map); if(g) popup(g.gold?'💰':'⚫',g.gold?'여기가 황금!':'석탄이에요',`${L.map+1}번 목적지 (나만 보여요)`,g.gold?'linear-gradient(160deg,#c9952c,#5a3d08)':'linear-gradient(160deg,#444,#111)'); }
+  if(L.reveal){ setTimeout(()=>{ const el=document.querySelector(`[data-k="${key(...GOALS[L.reveal.gi])}"]`); el&&el.classList.add('newc');
+    popup(L.reveal.gold?'💰':'⚫',L.reveal.gold?'황금 발견!':'석탄…',L.reveal.gold?'광부 팀 승리!':'다른 목적지를 노려요',L.reveal.gold?'linear-gradient(160deg,#e8b923,#6b4b10)':'linear-gradient(160deg,#555,#111)'); },300); }
+}
+
+boot({
+  id:'sabo', title:'황금 광산', sub:'광부는 황금까지 길을 잇고, 숨은 방해꾼은 몰래 막아요 · 3~10인', min:3, max:10,
+  rules:`<li>라운드마다 <b>광부</b>와 <b>방해꾼</b> 역할을 몰래 받아요. 내 역할은 나만 알아요.</li>
+    <li>내 차례엔 카드 1장을 쓰거나 버리고, 1장 뽑아요. 길 카드는 시작점과 이어지게, 옆 카드와 길이 맞게 놓아요 (180° 돌리기 가능).</li>
+    <li>⛏️🔦🛒 고장 카드로 남의 장비를 망가뜨리면 그 사람은 길 카드를 못 놓아요. 🔧 수리 카드로 고쳐요.</li>
+    <li>🗺️ 지도로 목적지 하나를 몰래 보고, 💥 낙석으로 길 하나를 무너뜨릴 수 있어요.</li>
+    <li>3개의 목적지 중 하나만 황금! 길이 황금에 닿으면 광부 승리(찾은 사람 3점, 다른 광부 2점), 카드가 다 떨어지면 방해꾼 승리(2~4점). 정한 라운드 후 최고점이 우승.</li>`,
+  defaultOpts:()=>({rounds:3}),
+  lobbyOpts:(G,host)=>`<div class="muted opt-t">라운드 수 ${host?'':'(방장이 정해요)'}</div>${optButtons(G,host,'rounds',[[1,'1라운드','맛보기'],[3,'3라운드','기본'],[5,'5라운드','길게']])}`,
+  setup:d=>{ d.score=Object.fromEntries(d.order.map(id=>[id,0])); d.rnd=1; d.starter=0; setupRound(d); },
+  render,
+});
+</script>
+</body>
+</html>
