@@ -116,7 +116,7 @@ function closeModal(){ $('#modal').innerHTML=''; }
 
 // ===================== 공통: 홈 / 대기실 =====================
 function boot(cfg){
-  CFG=cfg; document.title=cfg.title+' — 친구랑 보드게임';
+  CFG=cfg; document.title=cfg.title+' — 호섯의 보드게임방';
   if(typeof Peer==='undefined'){ $('#app').innerHTML='<h1>'+esc(cfg.title)+'</h1><div class="card-box">연결 모듈을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.</div>'; return; }
   const h=(location.hash||'').replace('#','').toUpperCase();
   if(/^[A-Z]{4}$/.test(h)) lsSet('gm_room_'+cfg.id,h);
