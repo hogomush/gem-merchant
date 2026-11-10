@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>무술 대결</title>
+<link rel="manifest" href="manifest.webmanifest?v=2">
+<meta name="theme-color" content="#17131f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="호섯의 보드게임방">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<link rel="icon" href="icon-192.png?v=2">
+<script>if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+body{background:radial-gradient(ellipse at top,#3b1f2a 0%,#15100f 65%)}
+.board{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:#5a3b24;padding:6px;border-radius:12px;box-shadow:inset 0 0 0 3px #8a5e3a,0 8px 20px rgba(0,0,0,.5);margin:8px 0;position:relative}
+.sq{aspect-ratio:1;background:#e9d4a8;border-radius:5px;position:relative;display:flex;align-items:center;justify-content:center}
+.sq.temple{background:radial-gradient(circle,#f5e1b5 30%,#d9b97c)}
+.sq.temple:after{content:'⛩️';position:absolute;font-size:13px;opacity:.55;bottom:1px;right:3px}
+.sq.tg{cursor:pointer}
+.sq.tg:before{content:'';position:absolute;inset:22%;border-radius:50%;background:var(--tc);opacity:.6;animation:pickme 1s infinite}
+.sq.tg.cap:before{inset:6%;background:transparent;border:4px solid var(--tc);opacity:.9}
+@keyframes pickme{50%{transform:scale(1.12)}}
+.pc{width:78%;height:78%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--pc) 55%,#fff),var(--pc) 65%,color-mix(in srgb,var(--pc) 60%,#000));border:3px solid rgba(255,255,255,.75);box-shadow:0 4px 6px rgba(0,0,0,.45);position:relative;z-index:2;cursor:pointer}
+.pc.m{width:88%;height:88%;font-size:26px;border-color:#ffe28a}
+.pc.sel{outline:3px solid #fff;outline-offset:2px}
+.cards{display:flex;gap:6px;justify-content:center}
+.mc{flex:1;max-width:140px;background:linear-gradient(170deg,#f5ead2,#e0cfa8);color:#3a2410;border-radius:10px;padding:5px;text-align:center;border:3px solid transparent;cursor:pointer;box-shadow:0 3px 6px rgba(0,0,0,.4)}
+.mc.sel{border-color:var(--accent)}
+.mc.opp{opacity:.9;cursor:default}
+.mc.opp .grid5{transform:rotate(180deg)}
+.mc.side{opacity:.75}
+.mc .nm{font-weight:900;font-size:13px}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:70px;margin:3px auto}
+.grid5 i{aspect-ratio:1;background:#cbb88f;border-radius:2px}
+.grid5 i.c{background:#3a2410}.grid5 i.t{background:var(--mc,#c0392b)}
+.who{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim)}
+.zone{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:6px}
+.sidebox{display:flex;align-items:center;gap:8px;justify-content:center;margin:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="common.js"></script>
+<script>
+// 이동 카드: [dx, dy] — dy는 앞쪽(+), dx는 오른쪽(+) (카드 주인 기준)
+const MC={
+ '호랑이':{em:'🐯',m:[[0,2],[0,-1]]}, '용':{em:'🐲',m:[[-2,1],[2,1],[-1,-1],[1,-1]]}, '개구리':{em:'🐸',m:[[-2,0],[-1,1],[1,-1]]}, '토끼':{em:'🐰',m:[[2,0],[1,1],[-1,-1]]},
+ '게':{em:'🦀',m:[[0,1],[-2,0],[2,0]]}, '코끼리':{em:'🐘',m:[[-1,1],[1,1],[-1,0],[1,0]]}, '거위':{em:'🪿',m:[[-1,1],[-1,0],[1,0],[1,-1]]}, '수탉':{em:'🐓',m:[[1,1],[1,0],[-1,0],[-1,-1]]},
+ '원숭이':{em:'🐵',m:[[-1,1],[1,1],[-1,-1],[1,-1]]}, '사마귀':{em:'🦗',m:[[-1,1],[1,1],[0,-1]]}, '말':{em:'🐴',m:[[0,1],[-1,0],[0,-1]]}, '소':{em:'🐮',m:[[0,1],[1,0],[0,-1]]},
+ '학':{em:'🕊️',m:[[0,1],[-1,-1],[1,-1]]}, '멧돼지':{em:'🐗',m:[[0,1],[-1,0],[1,0]]}, '장어':{em:'🐍',m:[[-1,1],[-1,-1],[1,0]]}, '코브라':{em:'🦎',m:[[1,1],[1,-1],[-1,0]]},
+};
+const curId=()=>G.order[G.turn];
+const other=id=>G.order.find(x=>x!==id);
+const side=(d,id)=>d.order.indexOf(id); // 0: 아래(위로 전진), 1: 위(아래로 전진)
+function absMove(s,[dx,dy]){ return s===0?[dx,-dy]:[-dx,dy]; }
+function targets(d,id,from,cards){
+  const s=side(d,id), x=from%5, y=Math.floor(from/5), out=[];
+  cards.forEach(c=>MC[c].m.forEach(mv=>{ const [ax,ay]=absMove(s,mv); const nx=x+ax, ny=y+ay; if(nx<0||nx>4||ny<0||ny>4) return; const t=ny*5+nx; const p=d.board[t]; if(p&&p.o===id) return; out.push({t,c}); }));
+  return out;
+}
+function newLast(d,o){ d.last=Object.assign({seq:(G.v||0)+1,by:myId},o); }
+async function doMove(from,to,card){
+  if(curId()!==myId||G.status!=='playing') return;
+  const d=clone(G); if(!targets(d,myId,from,[card]).some(m=>m.t===to)) return;
+  const p=d.board[from], cap=d.board[to];
+  d.board[to]=p; d.board[from]=null;
+  const h=d.hands[myId]; h[h.indexOf(card)]=d.side; d.side=card;
+  newLast(d,{from,to,card,cap:!!cap,capM:!!(cap&&cap.m)});
+  addLog(d,`${MC[card].em}${card} 카드로 ${p.m?'스승':'제자'} 이동${cap?(cap.m?' — 상대 스승을 잡았다!':' — 상대 제자를 잡았다!'):''}`,myId);
+  const op=other(myId), temple = side(d,op)===0 ? 22 : 2;
+  if(cap&&cap.m){ win(d,myId,'스승 잡기'); }
+  else if(p.m && to===temple){ win(d,myId,'상대 신전 점령'); }
+  else d.turn=1-d.turn;
+  selPiece=null; selCard=null; closeModal(); commit(d);
+}
+function noMoves(){ return G.board.every((p,i)=>!p||p.o!==myId||!targets(G,myId,i,G.hands[myId]).length); }
+async function doPass(card){ const d=clone(G); const h=d.hands[myId]; h[h.indexOf(card)]=d.side; d.side=card; d.turn=1-d.turn; newLast(d,{pass:1}); addLog(d,'움직일 수 없어 카드만 넘겼어요',myId); commit(d); }
+function win(d,id,how){ d.status='ended'; d.rank=[id,d.order.find(x=>x!==id)]; d.how=how; addLog(d,`🏆 ${how}로 승리!`,id); }
+
+let selPiece=null, selCard=null, lastSeen=null;
+function view(i){ const me=side(G,myId); return me===1 ? 24-i : i; } // 화면 칸 → 실제 칸
+function gridHTML(card,owner){
+  const s=side(G,owner); const flip = side(G,myId)!==s; // 상대 카드는 상대 기준 그대로 (뒤집어 표시)
+  const cells=[...Array(25)].map((_,k)=>{ const x=k%5-2, y=2-Math.floor(k/5); const hit=MC[card].m.some(([dx,dy])=>dx===x&&dy===y); return `<i class="${x===0&&y===0?'c':hit?'t':''}"></i>`; }).join('');
+  return `<div class="grid5" style="--mc:${pcol(owner)}">${cells}</div>`;
+}
+function cardHTML(card,owner,cls='',attr=''){ return `<div class="mc ${cls}" ${attr}><div class="nm">${MC[card].em} ${card}</div>${gridHTML(card,owner)}</div>`; }
+function render(prev){
+  if(!G) return;
+  const cur=curId(), my=cur===myId&&G.status==='playing', op=other(myId);
+  if(!my){ selPiece=null; selCard=null; }
+  const mine=G.hands[myId], cards=selCard?[selCard]:mine;
+  const tg = selPiece!==null&&my ? targets(G,myId,selPiece,cards) : [];
+  const tgMap={}; tg.forEach(m=>{ (tgMap[m.t]=tgMap[m.t]||[]).push(m.c); });
+  const myTemple = side(G,myId)===0?22:2, opTemple = side(G,op)===0?22:2;
+  let sq='';
+  for(let k=0;k<25;k++){
+    const i=view(k), p=G.board[i];
+    const t=tgMap[i];
+    sq+=`<div class="sq ${i===myTemple||i===opTemple?'temple':''} ${t?'tg':''} ${t&&p?'cap':''}" data-sq="${i}" style="--tc:${pcol(myId)}">${p?`<div class="pc ${p.m?'m':''} ${selPiece===i?'sel':''}" data-pc="${i}" style="--pc:${pcol(p.o)}">${p.m?'👑':'🥋'}</div>`:''}</div>`;
+  }
+  let endBox=''; if(G.status==='ended') endBox=endBoxHTML(G.rank.map((id,k)=>({id,txt:k?'패배':G.how+' 승리'})));
+  $('#app').innerHTML=`
+    <div class="topbar"><div><div class="turn ${my?'me':''}">${G.status==='ended'?'게임 종료':my?'내 차례!':esc(nameOf(cur))+'의 차례'}</div>
+      <div class="tiny">방 ${esc(G.code)} · <span class="net">${esc(netState)}</span></div></div>
+      <button class="btn sec sm" id="menu">메뉴</button></div>
+    ${endBox}
+    <div class="zone"><div class="who"><span style="color:${pcol(op)}">● ${esc(nameOf(op))}의 카드 (상대 기준)</span></div>
+      <div class="cards">${G.hands[op].map(c=>cardHTML(c,op,'opp')).join('')}</div></div>
+    <div class="board" id="bd">${sq}</div>
+    <div class="sidebox"><span class="tiny">다음에 넘어갈 카드 →</span>${cardHTML(G.side, curId(), 'side '+(curId()!==myId?'opp':''), 'style="max-width:110px"')}</div>
+    ${my&&noMoves()?`<div class="zone" style="text-align:center"><div class="tiny">움직일 수 있는 수가 없어요. 카드 1장을 골라 넘기세요.</div><div class="row" style="justify-content:center;margin-top:6px">${mine.map(c=>`<button class="btn sm" data-pass="${c}">${MC[c].em}${c} 넘기기</button>`).join('')}</div></div>`:''}
+    <div class="zone"><div class="who"><span style="color:${pcol(myId)}">● 내 카드 ${my?'— 말을 탭하고, 갈 곳을 탭하세요':''}</span></div>
+      <div class="cards">${mine.map(c=>cardHTML(c,myId,selCard===c?'sel':'',`data-card="${c}"`)).join('')}</div></div>
+    <div class="log">${(G.log||[]).slice().reverse().map(logHTML).join('')}</div>`;
+  $('#menu').onclick=()=>openMenu();
+  $('#again')&&($('#again').onclick=restartToLobby);
+  document.querySelectorAll('[data-pass]').forEach(b=>b.onclick=()=>doPass(b.dataset.pass));
+  if(my){
+    document.querySelectorAll('[data-card]').forEach(el=>el.onclick=()=>{ selCard=selCard===el.dataset.card?null:el.dataset.card; render(); });
+    document.querySelectorAll('.sq').forEach(el=>el.onclick=()=>{
+      const i=+el.dataset.sq, p=G.board[i];
+      if(tgMap[i]){ const cs=[...new Set(tgMap[i])]; if(cs.length===1) return doMove(selPiece,i,cs[0]);
+        openModal(`<h3>어떤 카드로 움직일까요?</h3><div class="cards">${cs.map(c=>cardHTML(c,myId,'',`data-pick="${c}"`)).join('')}</div><p class="tiny">쓴 카드는 상대에게 넘어가요</p><button class="btn sec" id="x">취소</button>`);
+        $('#x').onclick=closeModal; document.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>doMove(selPiece,i,b.dataset.pick)); return; }
+      if(p&&p.o===myId){ selPiece=selPiece===i?null:i; render(); }
+    });
+  }
+  // 애니메이션: 움직인 말 미끄러지기
+  const L=G.last;
+  if(L && lastSeen!==null && L.seq>lastSeen){ lastSeen=L.seq;
+    const el=document.querySelector(`[data-pc="${L.to}"]`), a=document.querySelector(`[data-sq="${L.from}"]`), b=document.querySelector(`[data-sq="${L.to}"]`);
+    if(el&&a&&b){ const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect(); el.animate([{transform:`translate(${ra.left-rb.left}px,${ra.top-rb.top}px) scale(1.15)`},{transform:'translate(0,0) scale(1)'}],{duration:450,easing:'cubic-bezier(.3,.7,.3,1)'}); }
+    if(L.cap){ setTimeout(()=>{ floatAt(b,L.capM?'👑 스승 격파!':'⚔️ 잡았다!','#ffd54a'); shakeEl($('#bd')); },380); }
+    if(L.by!==myId){ const last=(G.log||[]).filter(l=>l.p===L.by).slice(-1)[0]; last&&banner(L.by,last.t); }
+  } else if(lastSeen===null) lastSeen=L?L.seq:0;
+}
+
+boot({
+  id:'dojo', title:'무술 대결', sub:'5×5 판에서 이동 카드를 돌려 쓰는 2인 무술 체스', min:2, max:2,
+  rules:`<li>각자 👑스승 1명과 🥋제자 4명. 이동 카드 2장씩 받고, 1장은 옆에 둬요.</li>
+    <li>내 차례엔 내 카드 1장을 골라 그 그림대로 말 하나를 움직여요 (진한 칸 = 말 위치, 색칠 칸 = 갈 수 있는 곳).</li>
+    <li>쓴 카드는 상대에게 넘어가고, 옆에 있던 카드를 내가 받아요. 그래서 상대가 다음에 쓸 카드가 보여요!</li>
+    <li>상대 말이 있는 칸으로 가면 잡아요. <b>상대 스승을 잡거나</b>, <b>내 스승이 상대 신전(⛩️, 상대 스승 출발 칸)에 들어가면</b> 승리!</li>`,
+  setup:d=>{
+    const [a,b]=d.order; d.board=Array(25).fill(null);
+    for(let x=0;x<5;x++){ d.board[20+x]={o:a,m:x===2?1:0}; d.board[x]={o:b,m:x===2?1:0}; }
+    const cs=shuffle(Object.keys(MC)).slice(0,5);
+    d.hands={[a]:[cs[0],cs[1]],[b]:[cs[2],cs[3]]}; d.side=cs[4];
+    addLog(d,'🥋 대결 시작! 아래쪽이 내 진영이에요');
+  },
+  render,
+});
+</script>
+</body>
+</html>

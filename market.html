@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>시장 상인</title>
+<link rel="manifest" href="manifest.webmanifest?v=2">
+<meta name="theme-color" content="#17131f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="호섯의 보드게임방">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<link rel="icon" href="icon-192.png?v=2">
+<script>if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+body{background:radial-gradient(ellipse at top,#4a2a14 0%,#1a120c 65%)}
+.zone{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:8px}
+.zone h4{margin:0 0 6px;font-size:12px;color:var(--dim);display:flex;justify-content:space-between;align-items:center}
+.cards{display:flex;gap:5px;flex-wrap:wrap}
+.gd{width:58px;height:80px;border-radius:9px;border:2px solid rgba(255,255,255,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#fff;font-weight:800;font-size:10.5px;text-shadow:0 1px 2px rgba(0,0,0,.6);box-shadow:0 3px 6px rgba(0,0,0,.4);cursor:pointer;position:relative;transition:transform .15s}
+.gd .em{font-size:26px;line-height:1}
+.gd.sel{transform:translateY(-8px);border-color:#fff;box-shadow:0 0 0 3px var(--accent),0 8px 14px rgba(0,0,0,.5)}
+.gd.back{background:repeating-linear-gradient(45deg,#7a4a22 0 6px,#5e3818 6px 12px)!important}
+.gd.sm{width:34px;height:46px;font-size:0}.gd.sm .em{font-size:16px}
+.gd.new{animation:pop .5s ease}
+@keyframes pop{0%{transform:scale(.3) rotateY(90deg);opacity:0}100%{transform:none;opacity:1}}
+.opp{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.stacks{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.stk{border-radius:8px;padding:4px 2px;text-align:center;font-size:10px;background:var(--panel2);border-bottom:3px solid var(--c)}
+.stk .em{font-size:16px}.stk b{display:block;font-size:14px;color:#fff}
+.stk.empty{opacity:.3}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.acts .btn{flex:1;min-width:46%;margin:0;padding:11px 6px;font-size:14px}
+.score{font-family:'Black Han Sans';font-size:20px;color:var(--accent)}
+.seal{font-size:16px}
+.stepper{display:flex;align-items:center;gap:8px;margin:6px 0}
+.stepper button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:#fff;font-size:18px}
+.res .row{justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="common.js"></script>
+<script>
+// ===================== 데이터 =====================
+const GT={di:{n:'다이아',em:'💎',c:'#c0392b',k:6,tok:[7,7,5,5,5]},go:{n:'금',em:'🥇',c:'#d4a017',k:6,tok:[6,6,5,5,5]},si:{n:'은',em:'🥈',c:'#7f8c8d',k:6,tok:[5,5,5,5,5]},
+  cl:{n:'비단',em:'🧵',c:'#8e44ad',k:8,tok:[5,3,3,2,2,1,1]},sp:{n:'향신료',em:'🌶️',c:'#27ae60',k:8,tok:[5,3,3,2,2,1,1]},le:{n:'가죽',em:'👜',c:'#8b5a2b',k:10,tok:[4,3,2,1,1,1,1,1,1]},ca:{n:'낙타',em:'🐪',c:'#e0b26b',k:11}};
+const GOODS=['di','go','si','cl','sp','le'], PRECIOUS=['di','go','si'];
+const BON={3:[1,1,2,2,2,3,3],4:[4,4,5,5,6,6],5:[8,8,9,10,10]};
+const curId=()=>G.order[G.turn];
+const other=id=>G.order.find(x=>x!==id);
+function gdHTML(t,cls='',attr=''){ return `<div class="gd ${cls}" ${attr} style="background:linear-gradient(160deg,color-mix(in srgb,${GT[t].c} 70%,#fff),${GT[t].c} 70%)"><div class="em">${GT[t].em}</div><div>${GT[t].n}</div></div>`; }
+
+function setupRound(d){
+  let deck=[]; for(const t in GT) for(let i=0;i<GT[t].k-(t==='ca'?3:0);i++) deck.push(t);
+  deck=shuffle(deck);
+  d.market=['ca','ca','ca',deck.pop(),deck.pop()];
+  d.hands={}; d.herd={}; d.got={};
+  d.order.forEach(id=>{ const h=deck.splice(0,5); d.hands[id]=h.filter(t=>t!=='ca'); d.herd[id]=h.filter(t=>t==='ca').length; d.got[id]={r:0,b:0,g:0}; });
+  d.deck=deck; d.tokens={}; GOODS.forEach(t=>d.tokens[t]=GT[t].tok.slice());
+  d.bonus={3:shuffle(BON[3]),4:shuffle(BON[4]),5:shuffle(BON[5])};
+  d.phase='play'; d.res=null; d.turn=d.starter;
+  addLog(d,`🐪 ${d.rnd}판 시작! 먼저 2판 이기면 우승`);
+}
+function refill(d){ while(d.market.length<5){ if(!d.deck.length) return false; d.market.push(d.deck.pop()); } return true; }
+function emptyStacks(d){ return GOODS.filter(t=>!d.tokens[t].length).length; }
+function roundEnd(d){
+  const [a,b]=d.order;
+  let camel=null; if(d.herd[a]>d.herd[b]) camel=a; else if(d.herd[b]>d.herd[a]) camel=b;
+  if(camel){ d.got[camel].r+=5; addLog(d,`🐪 낙타 대장 보너스 +5`,camel); }
+  const sc=id=>[d.got[id].r,d.got[id].b,d.got[id].g];
+  const cmp=(x,y)=>{ const A=sc(x),B=sc(y); for(let i=0;i<3;i++) if(A[i]!==B[i]) return A[i]-B[i]; return 0; };
+  const c=cmp(a,b); const win=c>0?a:c<0?b:null;
+  if(win){ d.seals[win]++; addLog(d,`🏆 이번 판 승리! (${d.got[win].r}루피)`,win); } else addLog(d,'이번 판은 무승부!');
+  d.phase='roundEnd'; d.res={win,camel,got:clone(d.got)};
+  if(win && d.seals[win]>=2){ d.status='ended'; d.rank=[win,d.order.find(x=>x!==win)]; addLog(d,'게임 종료! 우승: '+d.players[win].name); }
+  else d.starter = win ? d.order.indexOf(d.order.find(x=>x!==win)) : (d.starter+1)%2;
+}
+function finish(d,refillNeeded){
+  if(refillNeeded && !refill(d)){ addLog(d,'시장 카드가 다 떨어졌어요'); roundEnd(d); return; }
+  if(emptyStacks(d)>=3){ addLog(d,'상품 토큰 더미 3개가 바닥났어요'); roundEnd(d); return; }
+  d.turn=1-d.turn;
+}
+function newLast(d,o){ d.last=Object.assign({seq:(G.v||0)+1,by:myId},o); }
+async function doTakeOne(i){
+  const d=clone(G), h=d.hands[myId], t=d.market[i];
+  if(t==='ca'||h.length>=7) return;
+  d.market.splice(i,1); h.push(t); newLast(d,{take:[t]});
+  addLog(d,`시장에서 ${GT[t].em}${GT[t].n} 1장 가져옴`,myId);
+  finish(d,true); clearSel(); commit(d);
+}
+async function doCamels(){
+  const d=clone(G); const n=d.market.filter(t=>t==='ca').length; if(!n) return;
+  d.market=d.market.filter(t=>t!=='ca'); d.herd[myId]+=n; newLast(d,{camels:n});
+  addLog(d,`🐪 낙타 ${n}마리를 모두 데려옴`,myId);
+  finish(d,true); clearSel(); commit(d);
+}
+async function doExchange(){
+  const d=clone(G), h=d.hands[myId];
+  const takeIdx=[...selM].sort((a,b)=>b-a), take=takeIdx.map(i=>d.market[i]);
+  const giveIdx=[...selH].sort((a,b)=>b-a), give=giveIdx.map(i=>h[i]);
+  const n=take.length;
+  if(n<2||take.includes('ca')||give.length+camelGive!==n) return;
+  if(give.some(t=>take.includes(t))) return toast('같은 종류를 주고받을 수 없어요');
+  if(h.length-give.length+n>7) return toast('손패는 최대 7장이에요');
+  takeIdx.forEach(i=>d.market.splice(i,1)); giveIdx.forEach(i=>h.splice(i,1));
+  h.push(...take); d.market.push(...give, ...Array(camelGive).fill('ca')); d.herd[myId]-=camelGive;
+  newLast(d,{take,give:[...give,...Array(camelGive).fill('ca')]});
+  addLog(d,`교환: ${[...give,...Array(camelGive).fill('ca')].map(t=>GT[t].em).join('')} → ${take.map(t=>GT[t].em).join('')}`,myId);
+  finish(d,false); clearSel(); commit(d);
+}
+async function doSell(){
+  const d=clone(G), h=d.hands[myId];
+  const idx=[...selH].sort((a,b)=>b-a), types=[...new Set(idx.map(i=>h[i]))];
+  if(types.length!==1) return; const t=types[0], n=idx.length;
+  if(PRECIOUS.includes(t)&&n<2) return toast('다이아·금·은은 2장 이상 팔아야 해요');
+  idx.forEach(i=>h.splice(i,1));
+  let sum=0; const toks=[]; for(let k=0;k<n;k++){ const v=d.tokens[t].shift(); if(v!==undefined){ sum+=v; toks.push(v); d.got[myId].g++; } }
+  let bon=0; const bk=n>=5?5:n>=4?4:n>=3?3:0; if(bk && d.bonus[bk].length){ bon=d.bonus[bk].shift(); d.got[myId].b++; }
+  d.got[myId].r+=sum+bon;
+  newLast(d,{sell:t,n,sum,bon});
+  addLog(d,`${GT[t].em}${GT[t].n} ${n}장 판매 → ${sum}루피${bon?` + 보너스 ${bon}`:''}`,myId);
+  finish(d,false); clearSel(); commit(d);
+}
+async function doNextRound(){
+  if(G.phase!=='roundEnd'||G.status!=='playing') return;
+  const d=clone(G); d.rnd++; setupRound(d); d.last={seq:(G.v||0)+1,by:myId,round:1}; commit(d);
+}
+
+// ===================== 그리기 =====================
+let selM=new Set(), selH=new Set(), camelGive=0, lastSeen=null;
+function clearSel(){ selM=new Set(); selH=new Set(); camelGive=0; }
+function render(prev){
+  if(!G) return;
+  const cur=curId(), my=cur===myId&&G.phase==='play'&&G.status==='playing', op=other(myId);
+  if(!my) clearSel();
+  const h=G.hands[myId]||[];
+  const mTypes=[...selM].map(i=>G.market[i]), hTypes=[...selH].map(i=>h[i]);
+  let acts='';
+  if(my){
+    const btn=(id,txt,ok)=>`<button class="btn ${ok?'':'sec'}" id="${id}" ${ok?'':'disabled'}>${txt}</button>`;
+    const one = selM.size===1 && !selH.size && mTypes[0]!=='ca' && h.length<7;
+    const nCam=G.market.filter(t=>t==='ca').length;
+    const ex = selM.size>=2 && !mTypes.includes('ca') && (selH.size+camelGive)===selM.size && !hTypes.some(t=>mTypes.includes(t)) && h.length-selH.size+selM.size<=7;
+    const sellT=[...new Set(hTypes)];
+    const sell = !selM.size && selH.size>0 && sellT.length===1 && !(PRECIOUS.includes(sellT[0])&&selH.size<2);
+    acts=`<div class="zone"><h4><b style="color:var(--accent)">내 차례!</b><span>카드를 탭해서 고르세요</span></h4>
+      ${selM.size>=2?`<div class="stepper"><span class="tiny">낙타로 내기</span><button id="cm">−</button><b>${camelGive}</b><button id="cp" ${camelGive>=G.herd[myId]?'disabled':''}>+</button><span class="tiny">시장 ${selM.size}장 ↔ 손 ${selH.size}장 + 낙타 ${camelGive}</span></div>`:''}
+      <div class="acts">${btn('a1','📥 1장 가져오기',one)}${btn('a2',`🐪 낙타 모두 (${nCam})`,nCam>0&&!selM.size&&!selH.size)}${btn('a3','🔄 교환하기',ex)}${btn('a4',`💰 팔기${sell?` (${selH.size}장)`:''}`,sell)}</div></div>`;
+  } else if(G.phase==='play'&&G.status==='playing') acts=`<div class="zone tiny" style="text-align:center">${esc(nameOf(cur))}의 차례…</div>`;
+  let mid='';
+  if(G.status==='ended') mid=endBoxHTML(G.rank.map(id=>({id,txt:`🏆 ${G.seals[id]}판 승`})));
+  else if(G.phase==='roundEnd'){ const r=G.res;
+    mid=`<div class="card-box res"><b style="font-size:16px">${G.rnd}판 결과 — ${r.win?`<span style="color:${pcol(r.win)}">${esc(nameOf(r.win))}</span> 승리!`:'무승부'}</b>
+      ${G.order.map(id=>`<div class="row"><span style="color:${pcol(id)}">${esc(nameOf(id))}${id===myId?' (나)':''}${r.camel===id?' 🐪+5':''}</span><span><b style="color:var(--accent)">${r.got[id].r}루피</b> · 승 ${G.seals[id]}</span></div>`).join('')}
+      <button class="btn" id="next">다음 판 시작</button></div>`; }
+  const stacks=GOODS.map(t=>`<div class="stk ${G.tokens[t].length?'':'empty'}" style="--c:${GT[t].c}"><div class="em">${GT[t].em}</div><b>${G.tokens[t][0]??'-'}</b>${G.tokens[t].length}개</div>`).join('');
+  $('#app').innerHTML=`
+    <div class="topbar"><div><div class="turn ${my?'me':''}">${G.status==='ended'?'게임 종료':G.phase==='roundEnd'?'판 종료':my?'내 차례!':esc(nameOf(cur))+'의 차례'}</div>
+      <div class="tiny">방 ${esc(G.code)} · <span class="net">${esc(netState)}</span> · ${G.rnd}판 · 덱 ${G.deck.length}장</div></div>
+      <button class="btn sec sm" id="menu">메뉴</button></div>
+    ${mid}
+    <div class="zone opp" data-pid="${op}" style="border-left:4px solid ${pcol(op)}"><div><b>${esc(nameOf(op))}</b> <span class="seal">${'🏆'.repeat(G.seals[op])}</span><div class="tiny">손패 ${G.hands[op].length}장 · 🐪 ${G.herd[op]}마리 · 토큰 ${G.got[op].g+G.got[op].b}개</div></div>
+      <div class="cards">${G.hands[op].map(()=>`<div class="gd sm back"><div class="em">🎴</div></div>`).join('')}</div></div>
+    <div class="zone"><h4>상품 시세 (다음에 받을 값)</h4><div class="stacks">${stacks}</div><div class="tiny" style="margin-top:4px">보너스: 3장 ${G.bonus[3].length} · 4장 ${G.bonus[4].length} · 5장+ ${G.bonus[5].length}개 남음</div></div>
+    <div class="zone"><h4><span>🏪 시장</span><span>덱 ${G.deck.length}장</span></h4><div class="cards" id="mkt">${G.market.map((t,i)=>gdHTML(t,selM.has(i)?'sel':'',`data-m="${i}"`)).join('')}</div></div>
+    ${acts}
+    <div class="zone" data-pid="${myId}" style="border-left:4px solid ${pcol(myId)}"><h4><span><b style="color:#fff">${esc(nameOf(myId))} (나)</b> ${'🏆'.repeat(G.seals[myId]||0)}</span><span class="score">${G.got[myId]?.r??0}루피</span></h4>
+      <div class="cards">${h.map((t,i)=>gdHTML(t,selH.has(i)?'sel':'',`data-h="${i}"`)).join('')||'<span class="tiny">손패 없음</span>'}</div>
+      <div class="tiny" style="margin-top:6px">🐪 낙타 ${G.herd[myId]}마리 · 손패 ${h.length}/7</div></div>
+    <div class="log">${(G.log||[]).slice().reverse().map(logHTML).join('')}</div>`;
+  $('#menu').onclick=()=>openMenu();
+  $('#next')&&($('#next').onclick=()=>{ $('#next').disabled=true; doNextRound(); });
+  $('#again')&&($('#again').onclick=restartToLobby);
+  if(my){
+    document.querySelectorAll('[data-m]').forEach(el=>el.onclick=()=>{ const i=+el.dataset.m; selM.has(i)?selM.delete(i):selM.add(i); render(); });
+    document.querySelectorAll('[data-h]').forEach(el=>el.onclick=()=>{ const i=+el.dataset.h; selH.has(i)?selH.delete(i):selH.add(i); render(); });
+    $('#cm')&&($('#cm').onclick=()=>{ camelGive=Math.max(0,camelGive-1); render(); });
+    $('#cp')&&($('#cp').onclick=()=>{ camelGive=Math.min(G.herd[myId],camelGive+1); render(); });
+    $('#a1').onclick=()=>doTakeOne([...selM][0]); $('#a2').onclick=doCamels; $('#a3').onclick=doExchange; $('#a4').onclick=doSell;
+  }
+  const L=G.last;
+  if(L && lastSeen!==null && L.seq>lastSeen){ lastSeen=L.seq; playAnim(L); } else if(lastSeen===null) lastSeen=L?L.seq:0;
+}
+function playAnim(L){
+  if(L.round){ banner(null,`${G.rnd}판 시작!`); return; }
+  const last=(G.log||[]).filter(l=>l.p===L.by).slice(-1)[0]; if(last) banner(L.by,last.t);
+  const n=(L.take?L.take.length:0)+(L.camels||0)+(L.give?L.give.length:0);
+  document.querySelectorAll('#mkt .gd').forEach((el,i)=>{ if(i>=5-Math.max(n,1)) el.classList.add('new'); });
+  const box=document.querySelector(`[data-pid="${L.by}"]`);
+  if(L.sell){ floatAt(box,`+${L.sum+L.bon} 루피`,'#ffd54a'); pulseEl(box,'#ffd54a'); }
+  else pulseEl(box,pcol(L.by));
+}
+
+boot({
+  id:'market', title:'시장 상인', sub:'낙타를 몰고 시장에서 상품을 모아 비싸게 파는 2인 대결', min:2, max:2,
+  rules:`<li>내 차례엔 <b>가져오기</b> 또는 <b>팔기</b> 중 하나만 해요.</li>
+    <li>가져오기: ① 시장 상품 1장 ② 시장의 낙타 전부 ③ 시장 카드 2장 이상을 내 손패/낙타와 같은 수만큼 맞교환. 손패는 최대 7장.</li>
+    <li>팔기: 한 종류를 원하는 만큼 팔고 그 상품 토큰을 위에서부터 받아요. 일찍 팔수록 비싸요! 다이아·금·은은 2장 이상만.</li>
+    <li>3장/4장/5장 이상 한꺼번에 팔면 보너스 토큰. 판이 끝나면 낙타가 더 많은 사람 +5.</li>
+    <li>상품 토큰 더미 3개가 바닥나거나 시장을 못 채우면 판 종료 → 루피가 많은 사람이 1승. 먼저 2승하면 우승!</li>`,
+  setup:d=>{ d.seals=Object.fromEntries(d.order.map(id=>[id,0])); d.rnd=1; d.starter=0; setupRound(d); },
+  render,
+});
+</script>
+</body>
+</html>

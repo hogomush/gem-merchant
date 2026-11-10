@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>벽 미로</title>
+<link rel="manifest" href="manifest.webmanifest?v=2">
+<meta name="theme-color" content="#17131f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="호섯의 보드게임방">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<link rel="icon" href="icon-192.png?v=2">
+<script>if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+body{background:radial-gradient(ellipse at top,#1d3a2e 0%,#0e1512 65%)}
+.bd{position:relative;width:100%;aspect-ratio:1;background:#3d2b1c;border-radius:12px;padding:0;margin:8px 0;box-shadow:inset 0 0 0 4px #6b4a2e,0 8px 20px rgba(0,0,0,.5)}
+.in{position:absolute;inset:8px}
+.cell{position:absolute;width:calc(100%/9);height:calc(100%/9);padding:3px}
+.cell i{display:block;width:100%;height:100%;border-radius:5px;background:#d9c08f;box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)}
+.cell.goalme i{background:color-mix(in srgb,var(--gc) 35%,#d9c08f)}
+.cell.goalop i{background:color-mix(in srgb,var(--gc) 35%,#d9c08f)}
+.cell.mv{cursor:pointer}.cell.mv i{background:#9fe0b8;animation:pickme 1s infinite}
+@keyframes pickme{50%{filter:brightness(1.15)}}
+.pawn{position:absolute;width:calc(100%/9);height:calc(100%/9);display:flex;align-items:center;justify-content:center;transition:left .35s cubic-bezier(.3,.7,.3,1),top .35s cubic-bezier(.3,.7,.3,1);pointer-events:none;z-index:3}
+.pawn b{width:70%;height:70%;border-radius:50%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--pc) 55%,#fff),var(--pc) 65%,color-mix(in srgb,var(--pc) 60%,#000));border:3px solid #fff;box-shadow:0 4px 6px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:15px}
+.wl{position:absolute;background:linear-gradient(180deg,#a0703f,#6b4320);border-radius:3px;box-shadow:0 2px 4px rgba(0,0,0,.6);z-index:2}
+.wl.h{height:7px;width:calc(200%/9 - 4px);transform:translate(2px,-50%)}
+.wl.v{width:7px;height:calc(200%/9 - 4px);transform:translate(-50%,2px)}
+.wl.pv{background:repeating-linear-gradient(45deg,#ffd54a 0 5px,#c99a1e 5px 10px);opacity:.9;animation:pickme 1s infinite}
+.wl.new{animation:wn .5s ease}
+@keyframes wn{0%{transform:translate(2px,-50%) scale(.2);opacity:0}100%{opacity:1}}
+.dotp{position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);border-radius:50%;z-index:4;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.dotp:after{content:'';width:8px;height:8px;border-radius:50%;background:#ffd54a;box-shadow:0 0 0 2px #0006}
+.dotp.on:after{width:12px;height:12px;background:#fff}
+.zone{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:6px}
+.who{display:flex;justify-content:space-between;align-items:center}
+.wallcnt{font-size:13px;letter-spacing:1px}
+.mode{display:flex;gap:6px}.mode .btn{margin:0;flex:1;padding:10px 4px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="common.js"></script>
+<script>
+const curId=()=>G.order[G.turn];
+const other=id=>G.order.find(x=>x!==id);
+const side=id=>G.order.indexOf(id);
+const goalRow=(d,id)=>d.order.indexOf(id)===0?0:8;
+function hasW(walls,r,c,o){ return walls.some(w=>w.r===r&&w.c===c&&w.o===o); }
+function blocked(walls,r,c,dr,dc){
+  if(dr===1) return hasW(walls,r,c,'h')||hasW(walls,r,c-1,'h');
+  if(dr===-1) return blocked(walls,r-1,c,1,0);
+  if(dc===1) return hasW(walls,r,c,'v')||hasW(walls,r-1,c,'v');
+  if(dc===-1) return blocked(walls,r,c-1,0,1);
+}
+const inb=(r,c)=>r>=0&&r<9&&c>=0&&c<9;
+const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+function pawnMoves(d,id){
+  const [r,c]=d.pawns[id], [or,oc]=d.pawns[d.order.find(x=>x!==id)], W=d.walls, out=[];
+  for(const [dr,dc] of DIRS){
+    const nr=r+dr, nc=c+dc; if(!inb(nr,nc)||blocked(W,r,c,dr,dc)) continue;
+    if(nr===or&&nc===oc){
+      const jr=nr+dr, jc=nc+dc;
+      if(inb(jr,jc)&&!blocked(W,nr,nc,dr,dc)) out.push([jr,jc]);
+      else for(const [pr,pc] of (dr?[[0,1],[0,-1]]:[[1,0],[-1,0]])){ const sr=nr+pr, sc=nc+pc; if(inb(sr,sc)&&!blocked(W,nr,nc,pr,pc)) out.push([sr,sc]); }
+    } else out.push([nr,nc]);
+  }
+  return out;
+}
+function hasPath(walls,[r,c],goal){
+  const seen=new Set([r*9+c]), Q=[[r,c]];
+  while(Q.length){ const [y,x]=Q.shift(); if(y===goal) return true;
+    for(const [dr,dc] of DIRS){ const ny=y+dr, nx=x+dc; if(!inb(ny,nx)||blocked(walls,y,x,dr,dc)||seen.has(ny*9+nx)) continue; seen.add(ny*9+nx); Q.push([ny,nx]); } }
+  return false;
+}
+function wallOk(d,w){
+  if(w.r<0||w.r>7||w.c<0||w.c>7) return false;
+  const W=d.walls;
+  if(W.some(x=>x.r===w.r&&x.c===w.c)) return false;
+  if(w.o==='h' && (hasW(W,w.r,w.c-1,'h')||hasW(W,w.r,w.c+1,'h'))) return false;
+  if(w.o==='v' && (hasW(W,w.r-1,w.c,'v')||hasW(W,w.r+1,w.c,'v'))) return false;
+  const W2=[...W,w];
+  return d.order.every(id=>hasPath(W2,d.pawns[id],goalRow(d,id)));
+}
+function newLast(d,o){ d.last=Object.assign({seq:(G.v||0)+1,by:myId},o); }
+async function doMove(r,c){
+  if(curId()!==myId||G.status!=='playing') return;
+  const d=clone(G); if(!pawnMoves(d,myId).some(([a,b])=>a===r&&b===c)) return;
+  d.pawns[myId]=[r,c]; newLast(d,{move:1});
+  if(r===goalRow(d,myId)){ d.status='ended'; d.rank=[myId,other(myId)]; addLog(d,'🏁 반대편에 도착! 승리!',myId); }
+  else { addLog(d,'말을 한 칸 움직였어요',myId); d.turn=1-d.turn; }
+  commit(d);
+}
+async function doWall(w){
+  if(curId()!==myId||G.status!=='playing'||G.left[myId]<=0) return;
+  const d=clone(G); if(!wallOk(d,w)) return toast('여기엔 벽을 놓을 수 없어요 (겹치거나 길이 완전히 막혀요)');
+  d.walls.push(w); d.left[myId]--; newLast(d,{wall:w}); addLog(d,`🧱 ${w.o==='h'?'가로':'세로'} 벽 설치 (남은 벽 ${d.left[myId]})`,myId);
+  d.turn=1-d.turn; mode='move'; pv=null; commit(d);
+}
+
+let mode='move', wo='h', pv=null, lastSeen=null;
+const P=100/9;
+function vr(r){ return side(myId)===1?8-r:r; } function vc(c){ return side(myId)===1?8-c:c; }
+function vw(w){ return side(myId)===1?{r:7-w.r,c:7-w.c,o:w.o}:w; } // 벽 좌표 화면 변환 (180° 대칭)
+function wallHTML(w,cls=''){ const v=vw(w); return v.o==='h' ? `<div class="wl h ${cls}" style="left:${v.c*P}%;top:${(v.r+1)*P}%"></div>` : `<div class="wl v ${cls}" style="left:${(v.c+1)*P}%;top:${v.r*P}%"></div>`; }
+function render(prev){
+  if(!G) return;
+  const cur=curId(), my=cur===myId&&G.status==='playing', op=other(myId);
+  if(!my){ mode='move'; pv=null; }
+  const mv = my&&mode==='move' ? pawnMoves(G,myId) : [];
+  const mvSet=new Set(mv.map(([r,c])=>r*9+c));
+  let cells='';
+  for(let r=0;r<9;r++) for(let c=0;c<9;c++){
+    const g = r===goalRow(G,myId)?'goalme':r===goalRow(G,op)?'goalop':'';
+    cells+=`<div class="cell ${g} ${mvSet.has(r*9+c)?'mv':''}" data-rc="${r},${c}" style="left:${vc(c)*P}%;top:${vr(r)*P}%;--gc:${g==='goalme'?pcol(myId):pcol(op)}"><i></i></div>`;
+  }
+  const pawns=G.order.map(id=>{ const [r,c]=G.pawns[id]; return `<div class="pawn" id="pw-${id}" style="left:${vc(c)*P}%;top:${vr(r)*P}%;--pc:${pcol(id)}"><b>${id===myId?'나':''}</b></div>`; }).join('');
+  let dots='';
+  if(my&&mode==='wall') for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const v=vw({r,c}); dots+=`<div class="dotp ${pv&&pv.r===r&&pv.c===c?'on':''}" data-w="${r},${c}" style="left:${(v.c+1)*P}%;top:${(v.r+1)*P}%"></div>`; }
+  const walls=G.walls.map((w,i)=>wallHTML(w, G.last&&G.last.wall&&i===G.walls.length-1?'new':'')).join('') + (pv?wallHTML({...pv,o:wo},'pv'):'');
+  let ctl='';
+  if(my){
+    ctl=`<div class="zone"><div class="mode"><button class="btn ${mode==='move'?'':'sec'}" id="mm">🚶 말 움직이기</button><button class="btn ${mode==='wall'?'':'sec'}" id="mw" ${G.left[myId]?'':'disabled'}>🧱 벽 놓기 (${G.left[myId]})</button></div>
+      ${mode==='move'?'<div class="tiny" style="margin-top:6px">초록 칸을 탭해 이동하세요. 상대 말과 마주하면 뛰어넘을 수 있어요.</div>'
+        :`<div class="tiny" style="margin-top:6px">노란 점(칸 사이 교차점)을 탭해 위치를 고르고, 방향을 정한 뒤 확정하세요.</div>
+          <div class="mode" style="margin-top:6px"><button class="btn sec" id="ro">${wo==='h'?'↔️ 가로':'↕️ 세로'} (바꾸기)</button><button class="btn" id="ok" ${pv?'':'disabled'}>여기에 벽 놓기</button></div>`}</div>`;
+  } else if(G.status==='playing') ctl=`<div class="zone tiny" style="text-align:center">${esc(nameOf(cur))}의 차례…</div>`;
+  let endBox=''; if(G.status==='ended') endBox=endBoxHTML(G.rank.map((id,k)=>({id,txt:k?'패배':'먼저 도착!'})));
+  $('#app').innerHTML=`
+    <div class="topbar"><div><div class="turn ${my?'me':''}">${G.status==='ended'?'게임 종료':my?'내 차례!':esc(nameOf(cur))+'의 차례'}</div>
+      <div class="tiny">방 ${esc(G.code)} · <span class="net">${esc(netState)}</span></div></div>
+      <button class="btn sec sm" id="menu">메뉴</button></div>
+    ${endBox}
+    <div class="zone who" data-pid="${op}"><span style="color:${pcol(op)}">● ${esc(nameOf(op))} <span class="tiny">→ 아래쪽 끝이 목표</span></span><span class="wallcnt">🧱×${G.left[op]}</span></div>
+    <div class="bd"><div class="in" id="in">${cells}${walls}${pawns}${dots}</div></div>
+    <div class="zone who" data-pid="${myId}"><span style="color:${pcol(myId)}">● ${esc(nameOf(myId))} (나) <span class="tiny">→ 위쪽 끝이 목표</span></span><span class="wallcnt">🧱×${G.left[myId]}</span></div>
+    ${ctl}
+    <div class="log">${(G.log||[]).slice().reverse().map(logHTML).join('')}</div>`;
+  $('#menu').onclick=()=>openMenu();
+  $('#again')&&($('#again').onclick=restartToLobby);
+  if(my){
+    $('#mm').onclick=()=>{ mode='move'; pv=null; render(); };
+    $('#mw').onclick=()=>{ mode='wall'; render(); };
+    $('#ro')&&($('#ro').onclick=()=>{ wo=wo==='h'?'v':'h'; render(); });
+    $('#ok')&&($('#ok').onclick=()=>doWall({...pv,o:wo}));
+    document.querySelectorAll('.cell.mv').forEach(el=>el.onclick=()=>{ const [r,c]=el.dataset.rc.split(',').map(Number); doMove(r,c); });
+    document.querySelectorAll('.dotp').forEach(el=>el.onclick=()=>{ const [r,c]=el.dataset.w.split(',').map(Number); pv={r,c}; render(); });
+  }
+  const L=G.last;
+  if(L && lastSeen!==null && L.seq>lastSeen){ lastSeen=L.seq;
+    if(L.move && prev && prev.pawns){ const el=document.getElementById('pw-'+L.by); const [r,c]=prev.pawns[L.by]; if(el){ const to={left:el.style.left,top:el.style.top}; el.style.transition='none'; el.style.left=vc(c)*P+'%'; el.style.top=vr(r)*P+'%'; void el.offsetWidth; el.style.transition=''; el.style.left=to.left; el.style.top=to.top; } }
+    if(L.by!==myId){ const last=(G.log||[]).filter(l=>l.p===L.by).slice(-1)[0]; last&&banner(L.by,last.t); }
+  } else if(lastSeen===null) lastSeen=L?L.seq:0;
+}
+
+boot({
+  id:'wall', title:'벽 미로', sub:'내 말은 반대편으로, 상대 길은 벽으로 막는 2인 길찾기', min:2, max:2,
+  rules:`<li>내 말을 <b>반대편 끝 줄</b>에 먼저 도착시키면 승리!</li>
+    <li>내 차례엔 ① 말을 위·아래·왼쪽·오른쪽으로 한 칸 움직이거나 ② 벽 1개를 놓아요 (각자 10개).</li>
+    <li>벽은 두 칸 길이로, 말이 지나가지 못해요. 단, 누군가의 길을 <b>완전히 막는 벽은 놓을 수 없어요.</b></li>
+    <li>상대 말과 마주 보면 뛰어넘을 수 있고, 뒤가 벽이면 대각선으로 비켜 갈 수 있어요.</li>`,
+  setup:d=>{ const [a,b]=d.order; d.pawns={[a]:[8,4],[b]:[0,4]}; d.walls=[]; d.left={[a]:10,[b]:10}; addLog(d,'🧱 시작! 각자 벽 10개'); },
+  render,
+});
+</script>
+</body>
+</html>
