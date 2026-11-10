@@ -24,7 +24,16 @@
 .cell .nm{font-weight:900;margin-top:1px;padding:0 1px;word-break:keep-all}
 .cell .pr{margin-top:auto;margin-bottom:1px;font-size:8px;color:#6b5a50}
 .cell .bd{margin-top:auto;font-size:10px;line-height:1}
-.cell.own{border-color:var(--oc);background:color-mix(in srgb,var(--oc) 28%,#f1ead9)}
+.cell.own,.cell.own.tour{border:2.5px solid var(--oc);background:linear-gradient(180deg,color-mix(in srgb,var(--oc) 55%,#f1ead9),color-mix(in srgb,var(--oc) 80%,#1d1729));color:#fff}
+.cell.own .nm{text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.cell.own .pr{color:#fff!important;text-shadow:0 1px 2px #000}
+.cell .ob{position:absolute;top:0;right:0;min-width:15px;height:15px;padding:0 2px;border-radius:0 0 0 7px;background:var(--oc);color:#fff;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:-1px 1px 2px rgba(0,0,0,.4);z-index:1}
+.cell.mine{box-shadow:0 0 0 2px #fff inset}
+.cell.dim{opacity:.25}
+.cell.focus{animation:fpulse .8s ease-in-out infinite}
+@keyframes fpulse{50%{filter:brightness(1.25);transform:scale(1.06)}}
+.pc{cursor:pointer}
+.pc .own-n{display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--pc);margin-right:3px;vertical-align:-1px}
 .cell.own .pr{color:#2b2130;font-weight:700}
 .cell.corner{background:linear-gradient(145deg,#3d3352,#2a2238);color:#fff;justify-content:center;font-size:10px}
 .cell.corner .ic{font-size:18px;line-height:1.1}
@@ -105,7 +114,7 @@ const LUCK=[
  {t:'장학금',s:'10만원을 받아요',f:(d,id)=>gain(d,id,10)},
  {t:'과속 벌금',s:'10만원을 복지기금에 내요',f:(d,id)=>pay(d,id,10,'fund')},
  {t:'건물 수리비',s:'별장 3만, 빌딩 6만, 호텔 10만원씩 내요',f:(d,id)=>{let s=0;for(const i in d.own){const o=d.own[i];if(o.o===id)s+=[0,3,6,10][o.lv];} if(s) pay(d,id,s,null); else addLog(d,'수리할 건물이 없어요',id);}},
- {t:'무인도 표류',s:'무인도로 바로 가요',f:(d,id)=>{goTo(d,id,8,false);return 'land'}},
+ {t:'여행 보너스',s:'15만원을 받아요',f:(d,id)=>gain(d,id,15)},
  {t:'고향 방문',s:'출발 칸으로 가서 월급을 받아요',f:(d,id)=>{goTo(d,id,0,true);return 'land'}},
  {t:'우주 정거장 초대',s:'우주여행 칸으로 이동',f:(d,id)=>{goTo(d,id,24,true);return 'land'}},
  {t:'길을 잃었다',s:'뒤로 3칸',f:(d,id)=>{back(d,id,3);return 'land'}},
@@ -230,16 +239,17 @@ async function doSpace(dest){
 // ===================== 그리기 =====================
 const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
 function dieHTML(n,cls=''){ return `<div class="die ${cls}">${[...Array(9)].map((_,k)=>`<i class="${PIPS[n].includes(k)?'on':''}"></i>`).join('')}</div>`; }
-let anim={}, lastSeen=null, animTimers=[];
+let anim={}, lastSeen=null, animTimers=[], focusPid=null;
 function cellHTML(i){
   const c=CELLS[i], [r,col]=rc(i), o=G.own?.[i];
   const pos=`grid-row:${r+1};grid-column:${col+1}`;
-  const pick = G.phase==='space' && curId()===myId && i!==24 ? 'pick':'';
+  const pick = G.phase==='space' && curId()===myId && i!==24 && !animBusy ? 'pick':'';
   if(['start','island','space','fundget'].includes(c.t)) return `<div class="cell corner ${pick}" data-cell="${i}" style="${pos}"><div class="ic">${c.ic}</div><div class="nm">${c.n}</div></div>`;
   if(c.t==='luck') return `<div class="cell luck ${pick}" data-cell="${i}" style="${pos}"><div class="ic">${c.ic}</div><div class="nm">행운카드</div></div>`;
   if(c.t==='fundpay') return `<div class="cell fund ${pick}" data-cell="${i}" style="${pos}"><div class="ic">${c.ic}</div><div class="nm">기금 납부</div></div>`;
-  const own=o?`own" style="${pos};--oc:${pcol(o.o)}`:`" style="${pos}`;
-  return `<div class="cell ${c.t==='tour'?'tour':''} ${pick} ${own}" data-cell="${i}"><div class="band" style="background:${c.t==='city'?GC[c.g]:''}"></div><div class="nm">${c.ic||''}${c.n}</div>
+  const fc = focusPid ? (o&&o.o===focusPid?'focus':'dim') : '';
+  const own=o?`own ${o.o===myId?'mine':''} ${fc}" style="${pos};--oc:${pcol(o.o)}`:`${fc}" style="${pos}`;
+  return `<div class="cell ${c.t==='tour'?'tour':''} ${pick} ${own}" data-cell="${i}">${o?`<span class="ob">${esc((nameOf(o.o)||'?').slice(0,1))}</span>`:''}<div class="band" style="background:${c.t==='city'?GC[c.g]:''}"></div><div class="nm">${c.ic||''}${c.n}</div>
     ${o?`<div class="bd">${BIC[o.lv]||''}</div><div class="pr" style="margin-top:0">${won(rentOf(i,o.lv))}</div>`:`<div class="pr">${won(c.p)}</div>`}</div>`;
 }
 function tokPos(id,cell){
@@ -253,8 +263,11 @@ function render(prev){
   const cur=curId(), me=G.ps[myId], my=cur===myId&&G.status==='playing';
   const L=G.last;
   if(L && lastSeen!==null && L.seq>lastSeen && L.path && L.path.length){ anim[L.by]=L.from; }
+  const willAnim = !!(L && lastSeen!==null && L.seq>lastSeen);
+  const busy = willAnim || animBusy;
   let act='';
   if(G.status==='ended') act='';
+  else if(my && busy) act=`<button class="btn" disabled>⏳ 앞 차례 진행 중…</button>`;
   else if(my&&G.phase==='roll') act=`<button class="btn" id="roll">🎲 주사위 굴리기</button>${me.island?`<div class="tiny">무인도 ${me.island}턴 남음 · 더블이면 탈출</div>`:''}`;
   else if(my&&G.phase==='space') act=`<div style="color:var(--accent);font-weight:800">🚀 날아갈 칸을 탭하세요</div>`;
   else if(my&&G.phase==='decide') act=`<button class="btn" id="dec">땅/건물 선택하기</button>`;
@@ -263,7 +276,7 @@ function render(prev){
   const pcs=G.order.map(id=>{const p=G.ps[id]; const n=Object.values(G.own).filter(o=>o.o===id).length;
     return `<div class="pc ${id===cur&&G.status==='playing'?'cur':''} ${p.alive?'':'dead'}" data-pid="${id}" style="--pc:${pcol(id)}">
       <div class="n"><span>${esc(nameOf(id))}${id===myId?' (나)':''}</span><span class="tiny">${p.alive?(p.island?'🏝️'+p.island:'')+(p.space?'🚀':'')+(p.free?'🎫'+p.free:'')+(p.escape?'🗝️'+p.escape:''):'파산'}</span></div>
-      <div class="cash">${won(p.cash)}</div><div class="sub2">땅 ${n}곳 · 총자산 ${won(assets(G,id))}</div></div>`}).join('');
+      <div class="cash">${won(p.cash)}</div><div class="sub2"><span class="own-n"></span>땅 ${n}곳 · 총자산 ${won(assets(G,id))}</div><div class="sub2" style="font-size:9.5px">탭하면 이 사람 땅 보기</div></div>`}).join('');
   const toks=G.order.filter(id=>G.ps[id].alive).map(id=>{const pos=anim[id]!==undefined?anim[id]:G.ps[id].pos; const t=tokPos(id,pos);
     return `<div class="tk ${id===myId?'me':''}" id="tk-${id}" style="background:${pcol(id)};left:${t.left};top:${t.top}"></div>`}).join('');
   let endBox='';
@@ -285,8 +298,9 @@ function render(prev){
   $('#menu').onclick=()=>{ openMenu(G.host===myId&&G.status==='playing'?'<button class="btn sec" id="m-skip">현재 차례 건너뛰기 (자리 비움)</button>':''); $('#m-skip')&&($('#m-skip').onclick=async()=>{const d=clone(G);d.last=null;addLog(d,'차례 건너뜀',curId());endTurn(d);closeModal();commit(d);}); };
   $('#roll')&&($('#roll').onclick=()=>{ $('#roll').disabled=true; doRoll(); });
   $('#dec')&&($('#dec').onclick=openDecide);
+  document.querySelectorAll('.pc[data-pid]').forEach(el=>el.onclick=()=>{ focusPid=focusPid===el.dataset.pid?null:el.dataset.pid; clearTimeout(render._ft); if(focusPid) render._ft=setTimeout(()=>{ focusPid=null; render(); },3500); render(); });
   $('#again')&&($('#again').onclick=restartToLobby);
-  document.querySelectorAll('[data-cell]').forEach(el=>el.onclick=()=>{ const i=+el.dataset.cell; if(G.phase==='space'&&curId()===myId&&G.status==='playing'){ if(i===24) return toast('우주여행 칸 말고 다른 칸을 골라 주세요'); doSpace(i); } else cellInfo(i); });
+  document.querySelectorAll('[data-cell]').forEach(el=>el.onclick=()=>{ const i=+el.dataset.cell; if(G.phase==='space'&&curId()===myId&&G.status==='playing'){ if(animBusy) return toast('앞 차례가 끝날 때까지 기다려 주세요'); if(i===24) return toast('우주여행 칸 말고 다른 칸을 골라 주세요'); doSpace(i); } else cellInfo(i); });
   // 애니메이션
   if(L && (lastSeen===null)){ lastSeen=L.seq; }
   else if(L && L.seq>lastSeen){ lastSeen=L.seq; playAnim(L); }
@@ -313,9 +327,10 @@ function playAnim(L){
     (L.ev||[]).forEach(e=>{ const key=e.id; done[key]=(done[key]||0)+e.amt; });
     Object.entries(done).forEach(([id,amt],k)=>{ if(!amt) return; setTimeout(()=>{ const el=document.querySelector(`.pc[data-pid="${id}"]`); floatAt(el,(amt>0?'+':'')+won(amt),amt>0?'#5fd38d':'#ff6b6b'); if(amt<0) shakeEl(el); else pulseEl(el,pcol(id)); },k*150); });
     const last=(G.log||[]).filter(l=>l.p===L.by).slice(-1)[0]; if(last) banner(L.by,last.t);
-    animBusy=false;
   },t));
-  animDelay=t+300;
+  const tail = (L.card!==undefined?1600:0) + ((L.ev||[]).length?700:250);
+  animTimers.push(setTimeout(()=>{ animBusy=false; render(); }, t+tail));
+  animDelay=t+tail+100;
 }
 function moveTok(id,fly){
   const el=document.getElementById('tk-'+id); if(!el) return;
