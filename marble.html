@@ -76,6 +76,15 @@
 .luckcard{background:linear-gradient(160deg,#fff3c4,#f5b83d);color:#3a2410;border-radius:16px;padding:18px 20px;width:250px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.6);animation:lc 2.4s ease forwards;border:3px solid #fff}
 .luckcard b{display:block;font-size:20px;margin-bottom:6px;font-family:'Black Han Sans'}
 @keyframes lc{0%{transform:rotateY(90deg) scale(.6);opacity:0}15%{transform:none;opacity:1}85%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
+
+.fx{position:fixed;pointer-events:none;z-index:92;left:0;top:0}
+.fx.coin{font-size:20px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+.fx.stamp{font-family:'Black Han Sans';font-size:19px;white-space:nowrap;text-shadow:0 0 6px rgba(0,0,0,.9),0 2px 0 #000;letter-spacing:1px}
+.fx.stamp.big{font-size:28px}
+.fx.spark{font-size:16px}
+.fx.rise{font-size:28px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+.fx.rise.big{font-size:40px}
+.fx.dust{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle,#e9dcc0,#b8a27a 70%,transparent)}
 </style>
 </head>
 <body>
@@ -139,7 +148,7 @@ function pay(d,id,amt,to){
     const rest=p.cash; p.cash=0; d.last.ev.push({id,amt:-rest});
     if(to==='fund') d.fund+=rest; else if(to){ d.ps[to].cash+=rest; d.last.ev.push({id:to,amt:rest}); }
     for(const i in d.own) if(d.own[i].o===id) delete d.own[i];
-    p.alive=false; addLog(d,'💥 파산했어요!',id); return;
+    p.alive=false; d.last.bankrupt=id; addLog(d,'💥 파산했어요!',id); return;
   }
   p.cash-=amt; d.last.ev.push({id,amt:-amt});
   if(to==='fund') d.fund+=amt; else if(to){ d.ps[to].cash+=amt; d.last.ev.push({id:to,amt}); }
@@ -151,7 +160,7 @@ function liquidate(d,id,need){
     delete d.own[i]; d.ps[id].cash+=v; addLog(d,`${CELLS[i].n}을(를) ${won(v)}에 급매`,id);
   }
 }
-function stepTo(d,id,dest,salary){ const p=d.ps[id]; while(p.pos!==dest){ p.pos=(p.pos+1)%N; d.last.path.push(p.pos); if(p.pos===0&&salary){ gain(d,id,SALARY); addLog(d,`출발 통과! 월급 ${won(SALARY)}`,id);} } }
+function stepTo(d,id,dest,salary){ const p=d.ps[id]; while(p.pos!==dest){ p.pos=(p.pos+1)%N; d.last.path.push(p.pos); if(p.pos===0&&salary){ d.last.salary=1; gain(d,id,SALARY); addLog(d,`출발 통과! 월급 ${won(SALARY)}`,id);} } }
 function goTo(d,id,dest,salary){ if(dest===8&&!salary){ d.ps[id].pos=8; d.last.path.push(8); d.last.jump=true; } else stepTo(d,id,dest,salary); }
 function back(d,id,n){ const p=d.ps[id]; for(let k=0;k<n;k++){ p.pos=(p.pos-1+N)%N; d.last.path.push(p.pos); } }
 function moveSteps(d,id,n){ const p=d.ps[id]; stepTo(d,id,(p.pos+n)%N,true); }
@@ -163,17 +172,17 @@ function land(d,id,depth=0){
     else if(o.o===id){ if(c.t==='city'&&o.lv<3&&p.cash>=bcost(i,o.lv+1)) d.pending={type:'build',cell:i}; else addLog(d,`내 땅 ${c.n}에 도착`,id); }
     else { const r=rentOf(i,o.lv);
       if(p.free>0){ p.free--; addLog(d,`VIP 패스로 ${c.n} 통행료 면제!`,id); }
-      else { addLog(d,`${c.n} 통행료 ${won(r)} → ${d.players[o.o].name}`,id); pay(d,id,r,o.o); } }
+      else { addLog(d,`${c.n} 통행료 ${won(r)} → ${d.players[o.o].name}`,id); d.last.rent={cell:i,to:o.o,amt:r}; pay(d,id,r,o.o); } }
   } else if(c.t==='luck'){
     const k=d.luck.shift(); d.luck.push(k); const L=LUCK[k]; d.last.card=k;
     addLog(d,`🍀 행운카드: ${L.t} — ${L.s}`,id);
     const r=L.f(d,id); if(r==='land' && depth<2 && d.ps[id].alive) land(d,id,depth+1);
   } else if(c.t==='island'){
     if(p.escape>0){ p.escape--; addLog(d,'탈출 비법 사용! 무인도를 바로 빠져나와요',id); }
-    else { p.island=2; d.again=false; addLog(d,'🏝️ 무인도 도착! 2턴 쉬어요 (더블이면 탈출)',id); }
+    else { p.island=2; d.again=false; d.last.island=1; addLog(d,'🏝️ 무인도 도착! 2턴 쉬어요 (더블이면 탈출)',id); }
   } else if(c.t==='fundpay'){ addLog(d,`복지기금 ${won(FUND)} 납부`,id); pay(d,id,FUND,'fund'); }
-  else if(c.t==='fundget'){ if(d.fund>0){ addLog(d,`💰 복지기금 ${won(d.fund)} 획득!`,id); gain(d,id,d.fund); d.fund=0; } else addLog(d,'복지기금이 비어 있어요',id); }
-  else if(c.t==='space'){ p.space=true; d.again=false; addLog(d,'🚀 우주여행! 다음 차례에 원하는 칸으로 날아가요',id); }
+  else if(c.t==='fundget'){ if(d.fund>0){ d.last.fundget=d.fund; addLog(d,`💰 복지기금 ${won(d.fund)} 획득!`,id); gain(d,id,d.fund); d.fund=0; } else addLog(d,'복지기금이 비어 있어요',id); }
+  else if(c.t==='space'){ p.space=true; d.again=false; d.last.space=1; addLog(d,'🚀 우주여행! 다음 차례에 원하는 칸으로 날아가요',id); }
 }
 function checkEnd(d){
   const a=alive(d);
@@ -222,7 +231,7 @@ async function doDecide(choice){
     pay(d,myId,c.p,null); d.own[i]={o:myId,lv:0}; addLog(d,`${c.n} 구매 (${won(c.p)})`,myId); d.last.buy=i;
   } else if(pend.type==='build' && choice>0){
     const o=d.own[i]; let cost=0; for(let k=o.lv+1;k<=choice;k++) cost+=bcost(i,k);
-    pay(d,myId,cost,null); o.lv=choice; addLog(d,`${c.n}에 ${BLD[choice]}까지 건설 (${won(cost)})`,myId); d.last.buy=i;
+    pay(d,myId,cost,null); o.lv=choice; addLog(d,`${c.n}에 ${BLD[choice]}까지 건설 (${won(cost)})`,myId); d.last.build={cell:i,lv:choice};
   } else addLog(d,`${c.n} — 그냥 지나가요`,myId);
   d.pending=null; finish(d); closeModal(); commit(d);
 }
@@ -312,7 +321,7 @@ function playAnim(L){
   animTimers.forEach(clearTimeout); animTimers=[];
   let t=0; animBusy=true;
   if(L.dice){
-    const dd=$('#dice'); if(dd){ let k=0; const iv=setInterval(()=>{ dd.innerHTML=dieHTML(1+rnd(6),'roll')+dieHTML(1+rnd(6),'roll'); if(++k>7){ clearInterval(iv); dd.innerHTML=dieHTML(L.dice[0],L.dice[0]===L.dice[1]?'dbl':'')+dieHTML(L.dice[1],L.dice[0]===L.dice[1]?'dbl':''); } },70); }
+    const dd=$('#dice'); if(dd){ let k=0; const iv=setInterval(()=>{ dd.innerHTML=dieHTML(1+rnd(6),'roll')+dieHTML(1+rnd(6),'roll'); if(++k>7){ clearInterval(iv); dd.innerHTML=dieHTML(L.dice[0],L.dice[0]===L.dice[1]?'dbl':'')+dieHTML(L.dice[1],L.dice[0]===L.dice[1]?'dbl':''); if(L.dice[0]===L.dice[1]) stampAt(dd,'더블!','#ffd54a',0,'big'); } },70); }
     t=650;
   }
   if(L.path && L.path.length){
@@ -323,14 +332,70 @@ function playAnim(L){
   } else delete anim[L.by];
   animTimers.push(setTimeout(()=>{
     if(L.card!==undefined) luckPop(L.card);
+    runFX(L, L.card!==undefined?1500:0);
     const done={};
     (L.ev||[]).forEach(e=>{ const key=e.id; done[key]=(done[key]||0)+e.amt; });
     Object.entries(done).forEach(([id,amt],k)=>{ if(!amt) return; setTimeout(()=>{ const el=document.querySelector(`.pc[data-pid="${id}"]`); floatAt(el,(amt>0?'+':'')+won(amt),amt>0?'#5fd38d':'#ff6b6b'); if(amt<0) shakeEl(el); else pulseEl(el,pcol(id)); },k*150); });
     const last=(G.log||[]).filter(l=>l.p===L.by).slice(-1)[0]; if(last) banner(L.by,last.t);
   },t));
-  const tail = (L.card!==undefined?1600:0) + ((L.ev||[]).length?700:250);
+  const hasFX = L.rent||L.buy!==undefined||L.build||L.salary||L.fundget||L.island||L.space||L.bankrupt;
+  const tail = (L.card!==undefined?1600:0) + ((L.ev||[]).length?700:250) + (hasFX?1500:0) + (L.rent&&L.rent.amt>=60||L.bankrupt||(L.build&&L.build.lv===3)?900:0);
   animTimers.push(setTimeout(()=>{ animBusy=false; render(); }, t+tail));
   animDelay=t+tail+100;
+}
+
+// ===================== 특수 이펙트 =====================
+const cellEl=i=>document.querySelector(`[data-cell="${i}"]`);
+const pcEl=id=>document.querySelector(`.pc[data-pid="${id}"]`);
+function ctr(el){ const r=el.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,h:r.height}; }
+function fxEl(html,x,y,cls=''){ const e=document.createElement('div'); e.className='fx '+cls; e.innerHTML=html; e.style.left=x+'px'; e.style.top=y+'px'; document.body.appendChild(e); return e; }
+function coins(fromEl,toEl,n,delay=0,em='🪙'){
+  if(!fromEl||!toEl) return; const a=ctr(fromEl), b=ctr(toEl);
+  for(let k=0;k<n;k++){
+    const e=fxEl(em,a.x+(Math.random()-.5)*20,a.y+(Math.random()-.5)*14,'coin');
+    const dx=b.x-a.x, dy=b.y-a.y, lift=-60-Math.random()*50;
+    e.animate([{transform:'translate(-50%,-50%) scale(.4)',opacity:0},{transform:`translate(calc(-50% + ${dx*.5}px),calc(-50% + ${dy*.5+lift}px)) scale(1.25) rotate(180deg)`,opacity:1,offset:.5},{transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(.7) rotate(360deg)`,opacity:.9}],
+      {duration:750,delay:delay+k*70,easing:'cubic-bezier(.4,0,.3,1)',fill:'both'}).onfinish=()=>{ e.remove(); if(k===n-1){ pulseEl(toEl,'#ffd54a'); } };
+  }
+}
+function stampAt(el,text,color,delay=0,cls=''){
+  if(!el) return; const c=ctr(el); const x=Math.max(64,Math.min(innerWidth-64,c.x)); const e=fxEl(esc(text),x,c.y,'stamp '+cls); e.style.color=color;
+  e.animate([{transform:'translate(-50%,-50%) scale(2.8) rotate(-14deg)',opacity:0},{transform:'translate(-50%,-50%) scale(.95) rotate(-6deg)',opacity:1,offset:.18},{transform:'translate(-50%,-50%) scale(1.05) rotate(-6deg)',opacity:1,offset:.3},{transform:'translate(-50%,-80%) scale(1) rotate(-6deg)',opacity:1,offset:.8},{transform:'translate(-50%,-110%) scale(.9) rotate(-6deg)',opacity:0}],
+    {duration:1500,delay,easing:'ease-out',fill:'both'}).onfinish=()=>e.remove();
+}
+function burst(el,ems,n,delay=0,spread=70){
+  if(!el) return; const c=ctr(el);
+  for(let k=0;k<n;k++){ const e=fxEl(ems[k%ems.length],c.x,c.y,'spark'); const a=Math.random()*Math.PI*2, r=spread*(.5+Math.random()*.7);
+    e.animate([{transform:'translate(-50%,-50%) scale(.2)',opacity:1},{transform:`translate(calc(-50% + ${Math.cos(a)*r}px),calc(-50% + ${Math.sin(a)*r}px)) scale(1.2)`,opacity:1,offset:.6},{transform:`translate(calc(-50% + ${Math.cos(a)*r*1.2}px),calc(-50% + ${Math.sin(a)*r*1.2+20}px)) scale(.6)`,opacity:0}],
+      {duration:900+Math.random()*400,delay:delay+Math.random()*150,easing:'cubic-bezier(.2,.8,.3,1)',fill:'both'}).onfinish=()=>e.remove(); }
+}
+function rise(el,em,delay=0,big=false){
+  if(!el) return; const c=ctr(el); const e=fxEl(em,c.x,c.y+c.h*.3,'rise'+(big?' big':''));
+  e.animate([{transform:'translate(-50%,-50%) scale(.1)',opacity:0},{transform:'translate(-50%,-90%) scale(1.7)',opacity:1,offset:.35},{transform:'translate(-50%,-80%) scale(1.4)',opacity:1,offset:.5},{transform:'translate(-50%,-75%) scale(1.45)',opacity:1,offset:.85},{transform:'translate(-50%,-60%) scale(.6)',opacity:0}],
+    {duration:1600,delay,easing:'cubic-bezier(.3,1.4,.4,1)',fill:'both'}).onfinish=()=>e.remove();
+  // 먼지
+  for(let k=0;k<8;k++){ const d=fxEl('',c.x,c.y+c.h*.35,'dust'); const dir=k<4?-1:1, r=20+Math.random()*25;
+    d.animate([{transform:'translate(-50%,-50%) scale(.3)',opacity:.9},{transform:`translate(calc(-50% + ${dir*r}px),calc(-50% - ${Math.random()*12}px)) scale(1.6)`,opacity:0}],{duration:800,delay:delay+60,easing:'ease-out',fill:'both'}).onfinish=()=>d.remove(); }
+}
+function flashCell(el,col,delay=0){ if(!el) return; el.animate([{boxShadow:`0 0 0 0 ${col}`,filter:'brightness(1)'},{boxShadow:`0 0 0 5px ${col}, 0 0 18px 6px ${col}`,filter:'brightness(1.5)',offset:.3},{boxShadow:`0 0 0 0 transparent`,filter:'brightness(1)'}],{duration:1100,delay}); }
+function bigPop(ic,t,sub,bg,delay=0){ setTimeout(()=>{ const el=document.createElement('div'); el.className='luckpop'; el.innerHTML=`<div class="luckcard" style="background:${bg};color:#fff"><div style="font-size:44px">${ic}</div><b>${esc(t)}</b>${esc(sub||'')}</div>`; document.body.appendChild(el); setTimeout(()=>el.remove(),2500); },delay); }
+function runFX(L,d0){
+  const who=L.by;
+  setTimeout(()=>{
+    if(L.salary){ const s=cellEl(0); stampAt(s,'월급!','#7dffa8'); coins(s,pcEl(who),5,150,'💵'); }
+    if(L.rent){ const c=cellEl(L.rent.cell); flashCell(c,'#ff4d4d'); stampAt(c,'통행료!','#ff6b6b'); shakeEl(pcEl(who));
+      coins(pcEl(who),pcEl(L.rent.to),Math.max(3,Math.min(12,Math.round(L.rent.amt/6))),350);
+      if(L.rent.amt>=60) bigPop('💸','통행료 폭탄!',`${won(L.rent.amt)} → ${nameOf(L.rent.to)}`,'linear-gradient(160deg,#d63031,#4a0d0d)',700); }
+    if(L.buy!==undefined){ const c=cellEl(L.buy); flashCell(c,pcol(who)); coins(pcEl(who),c,3,0); stampAt(c,'🚩 구매!',pcol(who),300); burst(c,['✨','⭐'],8,450,55); }
+    if(L.build){ const c=cellEl(L.build.cell), lv=L.build.lv; flashCell(c,'#ffd54a'); coins(pcEl(who),c,3,0);
+      rise(c,BIC[lv],250,lv===3); burst(c,lv===3?['🎉','✨','🎆','⭐']:['✨','⭐'],lv===3?18:8,700,lv===3?110:60);
+      stampAt(c,`${BLD[lv]} 완공!`,'#ffd54a',900);
+      if(lv===3) bigPop('🏨','호텔 완공!',`${CELLS[L.build.cell].n} 통행료 ${won(rentOf(L.build.cell,3))}`,'linear-gradient(160deg,#e8b923,#6b4b10)',1300); }
+    if(L.fundget){ const f=document.querySelector('.center .fund'); coins(f||cellEl(16),pcEl(who),8,0,'💰'); stampAt(cellEl(16),'기금 획득!','#8ec5ea'); }
+    if(L.island){ const c=cellEl(8); burst(c,['🌊','💦'],10,0,50); bigPop('🏝️','무인도 표류!','2턴 쉬어요 · 더블이면 탈출','linear-gradient(160deg,#2e86de,#0b3d6b)',200); }
+    if(L.space){ const c=cellEl(24); burst(c,['🔥','✨','⭐'],12,0,60); bigPop('🚀','우주여행!','다음 차례에 원하는 칸으로 날아가요','linear-gradient(160deg,#6c5ce7,#1d1347)',200); }
+    if(L.bankrupt){ shakeEl($('#board')); bigPop('💥',`${nameOf(L.bankrupt)} 파산!`,'모든 땅이 사라졌어요','linear-gradient(160deg,#444,#111)',400); }
+  },d0);
 }
 function moveTok(id,fly){
   const el=document.getElementById('tk-'+id); if(!el) return;
