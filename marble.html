@@ -85,6 +85,9 @@
 .fx.rise{font-size:28px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
 .fx.rise.big{font-size:40px}
 .fx.dust{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle,#e9dcc0,#b8a27a 70%,transparent)}
+
+.fx.rocket{font-size:30px;z-index:93;filter:drop-shadow(0 0 8px #ff9f43)}
+.fx.smoke{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle,#fff,#ffd8a8 40%,rgba(255,160,80,.3) 70%,transparent);z-index:92}
 </style>
 </head>
 <body>
@@ -157,7 +160,7 @@ function liquidate(d,id,need){
   const props=Object.keys(d.own).filter(i=>d.own[i].o===id).map(Number).sort((a,b)=>propValue(a,d.own[a])-propValue(b,d.own[b]));
   while(d.ps[id].cash<need && props.length){
     const i=props.shift(); const v=Math.floor(propValue(i,d.own[i])/2);
-    delete d.own[i]; d.ps[id].cash+=v; addLog(d,`${CELLS[i].n}을(를) ${won(v)}에 급매`,id);
+    (d.last.sold=d.last.sold||[]).push({cell:i,v,lv:d.own[i].lv}); delete d.own[i]; d.ps[id].cash+=v; addLog(d,`${CELLS[i].n}을(를) ${won(v)}에 급매`,id);
   }
 }
 function stepTo(d,id,dest,salary){ const p=d.ps[id]; while(p.pos!==dest){ p.pos=(p.pos+1)%N; d.last.path.push(p.pos); if(p.pos===0&&salary){ d.last.salary=1; gain(d,id,SALARY); addLog(d,`출발 통과! 월급 ${won(SALARY)}`,id);} } }
@@ -248,7 +251,7 @@ async function doSpace(dest){
 // ===================== 그리기 =====================
 const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
 function dieHTML(n,cls=''){ return `<div class="die ${cls}">${[...Array(9)].map((_,k)=>`<i class="${PIPS[n].includes(k)?'on':''}"></i>`).join('')}</div>`; }
-let anim={}, lastSeen=null, animTimers=[], focusPid=null;
+let anim={}, lastSeen=null, animTimers=[], focusPid=null, flying={};
 function cellHTML(i){
   const c=CELLS[i], [r,col]=rc(i), o=G.own?.[i];
   const pos=`grid-row:${r+1};grid-column:${col+1}`;
@@ -287,7 +290,7 @@ function render(prev){
       <div class="n"><span>${esc(nameOf(id))}${id===myId?' (나)':''}</span><span class="tiny">${p.alive?(p.island?'🏝️'+p.island:'')+(p.space?'🚀':'')+(p.free?'🎫'+p.free:'')+(p.escape?'🗝️'+p.escape:''):'파산'}</span></div>
       <div class="cash">${won(p.cash)}</div><div class="sub2"><span class="own-n"></span>땅 ${n}곳 · 총자산 ${won(assets(G,id))}</div><div class="sub2" style="font-size:9.5px">탭하면 이 사람 땅 보기</div></div>`}).join('');
   const toks=G.order.filter(id=>G.ps[id].alive).map(id=>{const pos=anim[id]!==undefined?anim[id]:G.ps[id].pos; const t=tokPos(id,pos);
-    return `<div class="tk ${id===myId?'me':''}" id="tk-${id}" style="background:${pcol(id)};left:${t.left};top:${t.top}"></div>`}).join('');
+    return `<div class="tk ${id===myId?'me':''}" id="tk-${id}" style="background:${pcol(id)};left:${t.left};top:${t.top};opacity:${flying[id]?0:1}"></div>`}).join('');
   let endBox='';
   if(G.status==='ended') endBox=endBoxHTML(G.rank.map(id=>({id,txt:G.ps[id].alive?`총자산 ${won(assets(G,id))}`:'파산'})));
   $('#app').innerHTML=`
@@ -326,7 +329,8 @@ function playAnim(L){
   }
   if(L.path && L.path.length){
     const id=L.by; const step = L.fly||L.jump ? 0 : 170;
-    if(L.fly||L.jump){ animTimers.push(setTimeout(()=>{ anim[id]=L.path[L.path.length-1]; moveTok(id,true); delete anim[id]; },t+200)); t+=500; }
+    if(L.fly){ const dest=L.path[L.path.length-1]; animTimers.push(setTimeout(()=>rocketFly(id,L.from,dest),t+150)); t+=2300; }
+    else if(L.jump){ animTimers.push(setTimeout(()=>{ anim[id]=L.path[L.path.length-1]; moveTok(id,true); delete anim[id]; },t+200)); t+=500; }
     else L.path.forEach((pos,k)=>animTimers.push(setTimeout(()=>{ anim[id]=pos; moveTok(id,false); if(k===L.path.length-1) delete anim[id]; },t+k*step)));
     t+=L.path.length*step;
   } else delete anim[L.by];
@@ -338,8 +342,8 @@ function playAnim(L){
     Object.entries(done).forEach(([id,amt],k)=>{ if(!amt) return; setTimeout(()=>{ const el=document.querySelector(`.pc[data-pid="${id}"]`); floatAt(el,(amt>0?'+':'')+won(amt),amt>0?'#5fd38d':'#ff6b6b'); if(amt<0) shakeEl(el); else pulseEl(el,pcol(id)); },k*150); });
     const last=(G.log||[]).filter(l=>l.p===L.by).slice(-1)[0]; if(last) banner(L.by,last.t);
   },t));
-  const hasFX = L.rent||L.buy!==undefined||L.build||L.salary||L.fundget||L.island||L.space||L.bankrupt;
-  const tail = (L.card!==undefined?1600:0) + ((L.ev||[]).length?700:250) + (hasFX?1500:0) + (L.rent&&L.rent.amt>=60||L.bankrupt||(L.build&&L.build.lv===3)?900:0);
+  const hasFX = (L.sold&&L.sold.length)||L.rent||L.buy!==undefined||L.build||L.salary||L.fundget||L.island||L.space||L.bankrupt;
+  const tail = (L.sold&&L.sold.length?2900+L.sold.length*350:0) + (L.card!==undefined?1600:0) + ((L.ev||[]).length?700:250) + (hasFX?1500:0) + (L.rent&&L.rent.amt>=60||L.bankrupt||(L.build&&L.build.lv===3)?900:0);
   animTimers.push(setTimeout(()=>{ animBusy=false; render(); }, t+tail));
   animDelay=t+tail+100;
 }
@@ -379,8 +383,26 @@ function rise(el,em,delay=0,big=false){
 }
 function flashCell(el,col,delay=0){ if(!el) return; el.animate([{boxShadow:`0 0 0 0 ${col}`,filter:'brightness(1)'},{boxShadow:`0 0 0 5px ${col}, 0 0 18px 6px ${col}`,filter:'brightness(1.5)',offset:.3},{boxShadow:`0 0 0 0 transparent`,filter:'brightness(1)'}],{duration:1100,delay}); }
 function bigPop(ic,t,sub,bg,delay=0){ setTimeout(()=>{ const el=document.createElement('div'); el.className='luckpop'; el.innerHTML=`<div class="luckcard" style="background:${bg};color:#fff"><div style="font-size:44px">${ic}</div><b>${esc(t)}</b>${esc(sub||'')}</div>`; document.body.appendChild(el); setTimeout(()=>el.remove(),2500); },delay); }
+function soldFX(L){
+  const who=L.by, list=L.sold||[]; if(!list.length) return 0;
+  const total=list.reduce((a,x)=>a+x.v,0);
+  banner(who,`🔨 돈이 모자라 땅 ${list.length}곳을 반값에 급매!`);
+  bigPop('🔨','땅 급매!',`돈이 모자라 ${list.length}곳을 반값에 팔았어요 (+${won(total)})`,'linear-gradient(160deg,#b33939,#3d0f0f)',300+list.length*350+700);
+  list.forEach((x,k)=>{
+    const c=cellEl(x.cell); const dl=200+k*350;
+    setTimeout(()=>{
+      flashCell(c,'#ff4d4d');
+      if(x.lv>0){ const e=fxEl(BIC[x.lv],ctr(c).x,ctr(c).y,'rise'); e.animate([{transform:'translate(-50%,-60%) scale(1.4) rotate(0)',opacity:1},{transform:'translate(-50%,-30%) scale(1.2) rotate(-18deg)',opacity:1,offset:.4},{transform:'translate(-50%,40%) scale(.5) rotate(25deg)',opacity:0}],{duration:900,easing:'ease-in',fill:'both'}).onfinish=()=>e.remove(); }
+      burst(c,['💥','🧱','💨'],9,150,45);
+      stampAt(c,'급매!','#ff6b6b',100);
+      coins(c,pcEl(who),Math.max(2,Math.min(8,Math.round(x.v/6))),300,'💵');
+    },dl);
+  });
+  return 300+list.length*350+2600;
+}
 function runFX(L,d0){
   const who=L.by;
+  d0+=soldFX(L);
   setTimeout(()=>{
     if(L.salary){ const s=cellEl(0); stampAt(s,'월급!','#7dffa8'); coins(s,pcEl(who),5,150,'💵'); }
     if(L.rent){ const c=cellEl(L.rent.cell); flashCell(c,'#ff4d4d'); stampAt(c,'통행료!','#ff6b6b'); shakeEl(pcEl(who));
@@ -396,6 +418,32 @@ function runFX(L,d0){
     if(L.space){ const c=cellEl(24); burst(c,['🔥','✨','⭐'],12,0,60); bigPop('🚀','우주여행!','다음 차례에 원하는 칸으로 날아가요','linear-gradient(160deg,#6c5ce7,#1d1347)',200); }
     if(L.bankrupt){ shakeEl($('#board')); bigPop('💥',`${nameOf(L.bankrupt)} 파산!`,'모든 땅이 사라졌어요','linear-gradient(160deg,#444,#111)',400); }
   },d0);
+}
+function rocketFly(id,from,to){
+  const tk=document.getElementById('tk-'+id), A=cellEl(from), B=cellEl(to), bd=$('#board');
+  if(!A||!B||!bd){ anim[id]=to; moveTok(id,true); delete anim[id]; return; }
+  flying[id]=1; if(tk) tk.style.opacity='0';
+  const a=ctr(A), b=ctr(B), br=bd.getBoundingClientRect();
+  const P=[[a.x,a.y],[a.x,a.y-90],[br.left+br.width/2+(b.x<a.x?-40:40),br.top-30],[b.x,b.y-110],[b.x,b.y-14]];
+  const ang=(p,q)=>Math.atan2(q[1]-p[1],q[0]-p[0])*180/Math.PI+45;
+  const r=fxEl('🚀',a.x,a.y,'rocket');
+  const kf=[
+    {transform:`translate(-50%,-50%) rotate(-45deg) scale(.6)`,offset:0},
+    {transform:`translate(calc(-50% + ${P[1][0]-a.x}px),calc(-50% + ${P[1][1]-a.y}px)) rotate(${ang(P[0],P[1])}deg) scale(1.3)`,offset:.18},
+    {transform:`translate(calc(-50% + ${P[2][0]-a.x}px),calc(-50% + ${P[2][1]-a.y}px)) rotate(${ang(P[1],P[2])}deg) scale(1.6)`,offset:.48},
+    {transform:`translate(calc(-50% + ${P[3][0]-a.x}px),calc(-50% + ${P[3][1]-a.y}px)) rotate(${ang(P[2],P[3])}deg) scale(1.3)`,offset:.78},
+    {transform:`translate(calc(-50% + ${P[4][0]-a.x}px),calc(-50% + ${P[4][1]-a.y}px)) rotate(135deg) scale(.8)`,offset:1}];
+  // 발사 연기
+  burst(A,['💨','🔥'],8,0,40);
+  const trail=setInterval(()=>{ const rr=r.getBoundingClientRect(); const pf=fxEl('',rr.left+rr.width/2,rr.top+rr.height/2,'smoke');
+    pf.animate([{transform:'translate(-50%,-50%) scale(.6)',opacity:.85},{transform:'translate(-50%,-50%) scale(2.2)',opacity:0}],{duration:700,easing:'ease-out',fill:'both'}).onfinish=()=>pf.remove(); },45);
+  r.animate(kf,{duration:1900,easing:'cubic-bezier(.45,0,.35,1)',fill:'both'}).onfinish=()=>{
+    clearInterval(trail); r.remove(); delete flying[id];
+    anim[id]=to; const el=document.getElementById('tk-'+id);
+    if(el){ el.style.transition='none'; const t=tokPos(id,to); el.style.left=t.left; el.style.top=t.top; el.style.opacity='1'; void el.offsetWidth; el.style.transition=''; el.classList.remove('hop'); void el.offsetWidth; el.classList.add('hop'); }
+    delete anim[id];
+    burst(B,['✨','💨','⭐'],10,0,45); stampAt(B,'착륙!','#c7b8ff',0);
+  };
 }
 function moveTok(id,fly){
   const el=document.getElementById('tk-'+id); if(!el) return;
