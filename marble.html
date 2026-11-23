@@ -58,8 +58,9 @@
 .center .act{width:80%}
 .center .act .btn{margin-top:4px}
 .center .cl{font-size:10.5px;color:var(--dim);max-width:95%}
-.tk{position:absolute;width:15px;height:15px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.6);transition:left .16s ease,top .16s ease;z-index:5;pointer-events:none}
-.tk.me{width:17px;height:17px;border-width:3px}
+.tk .av{margin:0!important;border:0!important;box-shadow:none!important;width:100%!important;height:100%!important;min-width:0!important}
+.tk{overflow:hidden;display:flex;align-items:center;justify-content:center;position:absolute;width:19px;height:19px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.6);transition:left .16s ease,top .16s ease;z-index:5;pointer-events:none}
+.tk.me{width:21px;height:21px;border-width:3px}
 .tk.hop{animation:hop .16s ease}
 @keyframes hop{50%{transform:translateY(-8px) scale(1.15)}}
 .players{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
@@ -93,6 +94,7 @@
 <body>
 <div class="wrap" id="app"></div>
 <div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="profile.js"></script>
 <script src="common.js"></script>
 <script>
 // ===================== 보드 데이터 (오리지널 구성) =====================
@@ -287,10 +289,10 @@ function render(prev){
   const dice=L&&L.dice?L.dice:[1,1];
   const pcs=G.order.map(id=>{const p=G.ps[id]; const n=Object.values(G.own).filter(o=>o.o===id).length;
     return `<div class="pc ${id===cur&&G.status==='playing'?'cur':''} ${p.alive?'':'dead'}" data-pid="${id}" style="--pc:${pcol(id)}">
-      <div class="n"><span>${esc(nameOf(id))}${id===myId?' (나)':''}</span><span class="tiny">${p.alive?(p.island?'🏝️'+p.island:'')+(p.space?'🚀':'')+(p.free?'🎫'+p.free:'')+(p.escape?'🗝️'+p.escape:''):'파산'}</span></div>
+      <div class="n"><span class="who-n">${avHTML(id,24)}${esc(nameOf(id))}${id===myId?' (나)':''}</span><span class="tiny">${p.alive?(p.island?'🏝️'+p.island:'')+(p.space?'🚀':'')+(p.free?'🎫'+p.free:'')+(p.escape?'🗝️'+p.escape:''):'파산'}</span></div>
       <div class="cash">${won(p.cash)}</div><div class="sub2"><span class="own-n"></span>땅 ${n}곳 · 총자산 ${won(assets(G,id))}</div><div class="sub2" style="font-size:9.5px">탭하면 이 사람 땅 보기</div></div>`}).join('');
   const toks=G.order.filter(id=>G.ps[id].alive).map(id=>{const pos=anim[id]!==undefined?anim[id]:G.ps[id].pos; const t=tokPos(id,pos);
-    return `<div class="tk ${id===myId?'me':''}" id="tk-${id}" style="background:${pcol(id)};left:${t.left};top:${t.top};opacity:${flying[id]?0:1}"></div>`}).join('');
+    return `<div class="tk ${id===myId?'me':''}" id="tk-${id}" style="background:${pcol(id)};left:${t.left};top:${t.top};opacity:${flying[id]?0:1}">${avHTML(id,15)}</div>`}).join('');
   let endBox='';
   if(G.status==='ended') endBox=endBoxHTML(G.rank.map(id=>({id,txt:G.ps[id].alive?`총자산 ${won(assets(G,id))}`:'파산'})));
   $('#app').innerHTML=`

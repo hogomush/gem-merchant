@@ -27,7 +27,8 @@ body{background:radial-gradient(ellipse at top,#1d3a2e 0%,#0e1512 65%)}
 .cell.mv{cursor:pointer}.cell.mv i{background:#9fe0b8;animation:pickme 1s infinite}
 @keyframes pickme{50%{filter:brightness(1.15)}}
 .pawn{position:absolute;width:calc(100%/9);height:calc(100%/9);display:flex;align-items:center;justify-content:center;transition:left .35s cubic-bezier(.3,.7,.3,1),top .35s cubic-bezier(.3,.7,.3,1);pointer-events:none;z-index:3}
-.pawn b{width:70%;height:70%;border-radius:50%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--pc) 55%,#fff),var(--pc) 65%,color-mix(in srgb,var(--pc) 60%,#000));border:3px solid #fff;box-shadow:0 4px 6px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:15px}
+.pawn b .av{margin:0;border:0;box-shadow:none;width:100%!important;height:100%!important;min-width:0!important}
+.pawn b{overflow:hidden;width:70%;height:70%;border-radius:50%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--pc) 55%,#fff),var(--pc) 65%,color-mix(in srgb,var(--pc) 60%,#000));border:3px solid #fff;box-shadow:0 4px 6px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:15px}
 .wl{position:absolute;background:linear-gradient(180deg,#a0703f,#6b4320);border-radius:3px;box-shadow:0 2px 4px rgba(0,0,0,.6);z-index:2}
 .wl.h{height:7px;width:calc(200%/9 - 4px);transform:translate(2px,-50%)}
 .wl.v{width:7px;height:calc(200%/9 - 4px);transform:translate(-50%,2px)}
@@ -46,6 +47,7 @@ body{background:radial-gradient(ellipse at top,#1d3a2e 0%,#0e1512 65%)}
 <body>
 <div class="wrap" id="app"></div>
 <div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="profile.js"></script>
 <script src="common.js"></script>
 <script>
 const curId=()=>G.order[G.turn];
@@ -120,7 +122,7 @@ function render(prev){
     const g = r===goalRow(G,myId)?'goalme':r===goalRow(G,op)?'goalop':'';
     cells+=`<div class="cell ${g} ${mvSet.has(r*9+c)?'mv':''}" data-rc="${r},${c}" style="left:${vc(c)*P}%;top:${vr(r)*P}%;--gc:${g==='goalme'?pcol(myId):pcol(op)}"><i></i></div>`;
   }
-  const pawns=G.order.map(id=>{ const [r,c]=G.pawns[id]; return `<div class="pawn" id="pw-${id}" style="left:${vc(c)*P}%;top:${vr(r)*P}%;--pc:${pcol(id)}"><b>${id===myId?'나':''}</b></div>`; }).join('');
+  const pawns=G.order.map(id=>{ const [r,c]=G.pawns[id]; return `<div class="pawn" id="pw-${id}" style="left:${vc(c)*P}%;top:${vr(r)*P}%;--pc:${pcol(id)}"><b>${avHTML(id,26)}</b></div>`; }).join('');
   let dots='';
   if(my&&mode==='wall') for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const v=vw({r,c}); dots+=`<div class="dotp ${pv&&pv.r===r&&pv.c===c?'on':''}" data-w="${r},${c}" style="left:${(v.c+1)*P}%;top:${(v.r+1)*P}%"></div>`; }
   const walls=G.walls.map((w,i)=>wallHTML(w, G.last&&G.last.wall&&i===G.walls.length-1?'new':'')).join('') + (pv?wallHTML({...pv,o:wo},'pv'):'');
@@ -137,9 +139,9 @@ function render(prev){
       <div class="tiny">방 ${esc(G.code)} · <span class="net">${esc(netState)}</span></div></div>
       <button class="btn sec sm" id="menu">메뉴</button></div>
     ${endBox}
-    <div class="zone who" data-pid="${op}"><span style="color:${pcol(op)}">● ${esc(nameOf(op))} <span class="tiny">→ 아래쪽 끝이 목표</span></span><span class="wallcnt">🧱×${G.left[op]}</span></div>
+    <div class="zone who" data-pid="${op}"><span class="who-n" style="color:${pcol(op)}">${avHTML(op,24)}${esc(nameOf(op))}&nbsp;<span class="tiny">→ 아래쪽 끝이 목표</span></span><span class="wallcnt">🧱×${G.left[op]}</span></div>
     <div class="bd"><div class="in" id="in">${cells}${walls}${pawns}${dots}</div></div>
-    <div class="zone who" data-pid="${myId}"><span style="color:${pcol(myId)}">● ${esc(nameOf(myId))} (나) <span class="tiny">→ 위쪽 끝이 목표</span></span><span class="wallcnt">🧱×${G.left[myId]}</span></div>
+    <div class="zone who" data-pid="${myId}"><span class="who-n" style="color:${pcol(myId)}">${avHTML(myId,24)}${esc(nameOf(myId))} (나)&nbsp;<span class="tiny">→ 위쪽 끝이 목표</span></span><span class="wallcnt">🧱×${G.left[myId]}</span></div>
     ${ctl}
     <div class="log">${(G.log||[]).slice().reverse().map(logHTML).join('')}</div>`;
   $('#menu').onclick=()=>openMenu();

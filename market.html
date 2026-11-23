@@ -45,6 +45,7 @@ body{background:radial-gradient(ellipse at top,#4a2a14 0%,#1a120c 65%)}
 <body>
 <div class="wrap" id="app"></div>
 <div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="profile.js"></script>
 <script src="common.js"></script>
 <script>
 // ===================== 데이터 =====================
@@ -165,12 +166,12 @@ function render(prev){
       <div class="tiny">방 ${esc(G.code)} · <span class="net">${esc(netState)}</span> · ${G.rnd}판 · 덱 ${G.deck.length}장</div></div>
       <button class="btn sec sm" id="menu">메뉴</button></div>
     ${mid}
-    <div class="zone opp" data-pid="${op}" style="border-left:4px solid ${pcol(op)}"><div><b>${esc(nameOf(op))}</b> <span class="seal">${'🏆'.repeat(G.seals[op])}</span><div class="tiny">손패 ${G.hands[op].length}장 · 🐪 ${G.herd[op]}마리 · 토큰 ${G.got[op].g+G.got[op].b}개</div></div>
+    <div class="zone opp" data-pid="${op}" style="border-left:4px solid ${pcol(op)}"><div><b class="who-n">${avHTML(op,28)}${esc(nameOf(op))}</b> <span class="seal">${'🏆'.repeat(G.seals[op])}</span><div class="tiny">손패 ${G.hands[op].length}장 · 🐪 ${G.herd[op]}마리 · 토큰 ${G.got[op].g+G.got[op].b}개</div></div>
       <div class="cards">${G.hands[op].map(()=>`<div class="gd sm back"><div class="em">🎴</div></div>`).join('')}</div></div>
     <div class="zone"><h4>상품 시세 (다음에 받을 값)</h4><div class="stacks">${stacks}</div><div class="tiny" style="margin-top:4px">보너스: 3장 ${G.bonus[3].length} · 4장 ${G.bonus[4].length} · 5장+ ${G.bonus[5].length}개 남음</div></div>
     <div class="zone"><h4><span>🏪 시장</span><span>덱 ${G.deck.length}장</span></h4><div class="cards" id="mkt">${G.market.map((t,i)=>gdHTML(t,selM.has(i)?'sel':'',`data-m="${i}"`)).join('')}</div></div>
     ${acts}
-    <div class="zone" data-pid="${myId}" style="border-left:4px solid ${pcol(myId)}"><h4><span><b style="color:#fff">${esc(nameOf(myId))} (나)</b> ${'🏆'.repeat(G.seals[myId]||0)}</span><span class="score">${G.got[myId]?.r??0}루피</span></h4>
+    <div class="zone" data-pid="${myId}" style="border-left:4px solid ${pcol(myId)}"><h4><span><b class="who-n" style="color:#fff">${avHTML(myId,24)}${esc(nameOf(myId))} (나)</b> ${'🏆'.repeat(G.seals[myId]||0)}</span><span class="score">${G.got[myId]?.r??0}루피</span></h4>
       <div class="cards">${h.map((t,i)=>gdHTML(t,selH.has(i)?'sel':'',`data-h="${i}"`)).join('')||'<span class="tiny">손패 없음</span>'}</div>
       <div class="tiny" style="margin-top:6px">🐪 낙타 ${G.herd[myId]}마리 · 손패 ${h.length}/7</div></div>
     <div class="log">${(G.log||[]).slice().reverse().map(logHTML).join('')}</div>`;

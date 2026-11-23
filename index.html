@@ -34,6 +34,7 @@
   <div style="text-align:center;margin-top:22px"><img src="icon-192.png?v=2" alt="" style="width:72px;height:72px;border-radius:18px;box-shadow:0 8px 20px rgba(0,0,0,.45)"></div>
   <h1 style="margin-top:10px">호섯의 보드게임방</h1>
   <div class="sub">게임을 고르고, 방을 만들어 친구에게 초대 링크를 보내세요</div>
+  <div class="card-box" id="me" style="display:flex;align-items:center;justify-content:space-between;gap:10px"></div>
   <div class="games">
     <a class="g" href="splendor.html" style="--c:#c9952c"><div class="art">💎</div><div><div class="t">보석 상인</div><div class="d">보석을 모아 광산과 도시를 사고 귀족을 맞이하는 카드 게임</div><div class="m"><span>2~4인</span><span>30분</span><span>전략</span></div></div></a>
     <a class="g" href="marble.html" style="--c:#0984e3"><div class="art">🌏</div><div><div class="t">세계여행 부자왕</div><div class="d">주사위로 세계를 돌며 땅을 사고 호텔을 지어 통행료를 받는 게임</div><div class="m"><span>2~4인</span><span>30~60분</span><span>주사위·운</span></div></div></a>
@@ -74,6 +75,16 @@
   b.onclick=async()=>{ if(!ev) return; ev.prompt(); const r=await ev.userChoice; if(r.outcome==='accepted'){ box.style.display='none'; } ev=null; };
   addEventListener('appinstalled',()=>{ box.style.display='none'; });
 })();
+</script>
+<script src="profile.js"></script>
+<script>
+function drawMe(){
+  const p=pfGet(), el=document.getElementById('me');
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:10px">${pfAv(p.av,52)}<div><div class="tiny">내 프로필 · 게임 중에 친구들에게 보여요</div><b style="font-size:18px">${pfEsc(p.name||'닉네임을 정해 주세요')}</b></div></div><button class="btn sec sm" id="pfb">${p.name?'바꾸기':'만들기'}</button>`;
+  document.getElementById('pfb').onclick=()=>pfOpen(drawMe);
+}
+drawMe();
+if(!pfGet().name) setTimeout(()=>pfOpen(drawMe),400);
 </script>
 </body>
 </html>

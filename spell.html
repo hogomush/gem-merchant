@@ -100,6 +100,7 @@ body{background:radial-gradient(ellipse at top,#2b1f4a 0%,#130f1d 65%)}
 <body>
 <div class="wrap" id="app"></div>
 <div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="profile.js"></script>
 <script src="common.js"></script>
 <script>
 // ===================== 주문 (이름·효과 설명은 오리지널) =====================
@@ -206,7 +207,7 @@ function render(prev){
     const hand = me ? G.hands[id].map(()=>`<div class="st back">?</div>`).join('') : G.hands[id].map(n=>stoneHTML(n)).join('');
     const owl = me ? G.owl[id].map(n=>stoneHTML(n,'owl sm')).join('') : G.owl[id].map(()=>`<div class="st back sm owl">?</div>`).join('');
     return `<div class="pl ${id===cur&&G.phase==='play'&&G.status==='playing'?'cur':''} ${life<=0?'out':''}" data-pid="${id}" style="--pc:${pcol(id)}">
-      <div class="h"><span class="nm">${esc(nameOf(id))}${me?' (나)':''}${side}</span><span class="score">⭐ ${G.score[id]}</span></div>
+      <div class="h"><span class="nm who-n">${avHTML(id,28)}${esc(nameOf(id))}${me?' (나)':''}${side}</span><span class="score">⭐ ${G.score[id]}</span></div>
       <div class="h"><span class="hearts">${hearts(life)}</span><span class="tiny">${life<=0?'쓰러짐':''}</span></div>
       <div class="stones"><span class="lbl">${me?'내 돌 (안 보임)':'돌'}</span>${hand||'<span class="tiny">없음</span>'}${owl?`<span class="lbl" style="margin-left:6px">🦉비밀</span>${owl}`:''}</div>
     </div>`;
@@ -327,7 +328,6 @@ function plEl(id){ return document.querySelector(`.pl[data-pid="${id}"]`); }
 function spellFX(La){
   const n=La.n, me=plEl(La.by), who=`${nameOf(La.by)}${La.by===myId?' (나)':''}`;
   const tg=Object.entries(La.dmg||{}).filter(([id,v])=>v<0&&id!==La.by).map(([id])=>plEl(id)).filter(Boolean);
-  try{ navigator.vibrate&&navigator.vibrate(n<=3?[60,40,120]:n<=5?[60]:[25]); }catch(e){}
   if(n===2){ // 그림자 흡혈 — 큰 이펙트
     tint('radial-gradient(circle at 50% 45%,rgba(90,20,120,.6),rgba(10,0,20,.95))',.85,1900);
     title('그림자 흡혈!',`${who} · 모두 -1, 나 +1`,'#d7a6ff',38,1900);

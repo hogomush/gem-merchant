@@ -48,6 +48,7 @@ body{background:radial-gradient(ellipse at top,#16324a 0%,#0e1520 65%)}
 <body>
 <div class="wrap" id="app"></div>
 <div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="profile.js"></script>
 <script src="common.js"></script>
 <script>
 const CL={y:{n:'사막',em:'🏜️',c:'#e1b12c',t:'#2b1d00'},b:{n:'바다',em:'🌊',c:'#2e86de',t:'#fff'},g:{n:'정글',em:'🌴',c:'#27ae60',t:'#fff'},r:{n:'화산',em:'🌋',c:'#d63031',t:'#fff'},w:{n:'빙하',em:'🏔️',c:'#dfe6e9',t:'#22303a'}};
@@ -124,9 +125,9 @@ function render(prev){
       <div class="tiny">방 ${esc(G.code)} · <span class="net">${esc(netState)}</span> · ${G.rnd}/${G.opts.rounds}라운드 · 덱 ${G.deck.length}장</div></div>
       <button class="btn sec sm" id="menu">메뉴</button></div>
     ${mid}
-    <div class="zone" data-pid="${op}" style="border-left:4px solid ${pcol(op)}"><h4><span><b style="color:#fff">${esc(nameOf(op))}</b> · 손패 ${G.hands[op].length}장</span><span class="tot">${total(G,op)}점 <span class="tiny">(누적 ${G.score[op]})</span></span></h4>${colHTML(op,true)}</div>
+    <div class="zone" data-pid="${op}" style="border-left:4px solid ${pcol(op)}"><h4><span class="who-n"><b style="color:#fff" class="who-n">${avHTML(op,24)}${esc(nameOf(op))}</b>&nbsp;· 손패 ${G.hands[op].length}장</span><span class="tot">${total(G,op)}점 <span class="tiny">(누적 ${G.score[op]})</span></span></h4>${colHTML(op,true)}</div>
     <div class="disc">${piles}</div>
-    <div class="zone" data-pid="${myId}" style="border-left:4px solid ${pcol(myId)}"><h4><span><b style="color:#fff">${esc(nameOf(myId))} (나)</b></span><span class="tot">${total(G,myId)}점 <span class="tiny">(누적 ${G.score[myId]})</span></span></h4>${colHTML(myId,false)}
+    <div class="zone" data-pid="${myId}" style="border-left:4px solid ${pcol(myId)}"><h4><span><b style="color:#fff" class="who-n">${avHTML(myId,24)}${esc(nameOf(myId))} (나)</b></span><span class="tot">${total(G,myId)}점 <span class="tiny">(누적 ${G.score[myId]})</span></span></h4>${colHTML(myId,false)}
       <div class="hand">${h.map(c=>cdHTML(c,`${sel===c.u?'sel':''} ${G.last&&G.last.u===c.u&&G.last.by===myId?'new':''}`,`data-u="${c.u}"`)).join('')}</div>${acts}</div>
     <div class="log">${(G.log||[]).slice().reverse().map(logHTML).join('')}</div>`;
   $('#menu').onclick=()=>openMenu();

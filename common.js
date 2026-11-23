@@ -90,15 +90,17 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden && peer &
 function playersSortedFrom(p){ return Object.entries(p||{}).sort((a,b)=>a[1].joined-b[1].joined).map(x=>x[0]); }
 function nameOf(id){ return G?.players?.[id]?.name || '플레이어'; }
 function pcol(id){ const list=G?.order||playersSortedFrom(G?.players); const i=list.indexOf(id); return i<0?'#aaa':PCOL[i%PCOL.length]; }
+function avHTML(id,size=22){ return pfAv(G?.players?.[id]?.av,size,pcol(id)); }
+function whoHTML(id,size=20,me=true){ return `<span class="who-n">${avHTML(id,size)}${esc(nameOf(id))}${me&&id===myId?' (나)':''}</span>`; }
 function addLog(d,msg,p){ d.log=(d.log||[]).concat(p?{p,t:msg}:{t:msg}).slice(-40); }
 function logHTML(l){
   if(!l.p) return `<div class="sys">${esc(l.t)}</div>`;
   const me=l.p===myId, col=pcol(l.p);
-  return `<div class="${me?'mine':''}"><i class="dot" style="background:${col}"></i><b style="color:${col}">${esc(nameOf(l.p))}${me?' (나)':''}</b> ${esc(l.t)}</div>`;
+  return `<div class="${me?'mine':''}">${avHTML(l.p,16)}<b style="color:${col}">${esc(nameOf(l.p))}${me?' (나)':''}</b> ${esc(l.t)}</div>`;
 }
 function banner(id, text){
   const b=$('#banner'); if(!b) return;
-  b.innerHTML=`<div class="bn" style="--pc:${id?pcol(id):'#e8b923'}">${id?`<i class="dot" style="background:${pcol(id)}"></i><b>${esc(nameOf(id))}${id===myId?' (나)':''}</b>`:''} ${esc(text)}</div>`;
+  b.innerHTML=`<div class="bn" style="--pc:${id?pcol(id):'#e8b923'}">${id?`${avHTML(id,20)}<b>${esc(nameOf(id))}${id===myId?' (나)':''}</b>`:''} ${esc(text)}</div>`;
   clearTimeout(banner._t); banner._t=setTimeout(()=>b.innerHTML='',2600);
 }
 function floatAt(el, text, color){
@@ -129,7 +131,7 @@ function renderHome(err){
     <a class="back" href="./">← 게임 목록</a>
     <h1>${esc(CFG.title)}</h1><div class="sub">${esc(CFG.sub)}</div>
     <div class="card-box">
-      <label>내 닉네임</label><input id="nick" maxlength="10" value="${esc(nick)}" placeholder="예: 철수">
+      <div class="row" style="justify-content:space-between"><div class="row">${pfAv(pfGet().av,46)}<div><div class="tiny">내 프로필</div><b style="font-size:17px">${esc(nick||'닉네임 없음')}</b></div></div><button class="btn sec sm" id="pf">프로필 바꾸기</button></div>
       <button class="btn" id="mk">새 방 만들기 (내가 방장)</button>
     </div>
     <div class="card-box">
@@ -139,16 +141,18 @@ function renderHome(err){
       <div class="err">${esc(err||'')}</div>
     </div>
     <div class="card-box help"><b>규칙 요약</b><ul>${CFG.rules}<li>방장 폰이 게임 서버 역할을 해요. 게임 중엔 방장이 이 화면을 계속 켜 두세요.</li></ul></div>`;
-  $('#mk').onclick=()=>createRoom();
-  $('#jn').onclick=()=>joinRoom($('#code').value.trim().toUpperCase());
+  $('#pf').onclick=()=>pfOpen(()=>renderHome());
+  $('#mk').onclick=()=>needProfile(createRoom);
+  $('#jn').onclick=()=>{ const c=$('#code').value.trim().toUpperCase(); needProfile(()=>joinRoom(c)); };
 }
-function getNick(){ const n=($('#nick')?.value||lsGet('gm_nick')||'플레이어').trim().slice(0,10)||'플레이어'; lsSet('gm_nick',n); return n; }
+function getNick(){ return (pfGet().name||'플레이어').trim().slice(0,10)||'플레이어'; }
+function needProfile(fn){ if(pfGet().name) return fn(); pfOpen(()=>{ renderHome(); fn(); }); }
 function busy(msg){ $('#app').innerHTML='<h1>'+esc(CFG.title)+'</h1><div class="sub">'+esc(msg)+'</div>'; }
 async function createRoom(){
   const nick=getNick(); const L='ABCDEFGHJKLMNPQRSTUVWXYZ'; busy('방 만드는 중…');
   for(let tries=0;tries<4;tries++){
     let code=''; for(let i=0;i<4;i++) code+=L[rnd(L.length)];
-    const data={code, game:CFG.id, host:myId, status:'lobby', v:1, players:{[myId]:{name:nick,joined:Date.now()}}, opts:CFG.defaultOpts?CFG.defaultOpts():{}};
+    const data={code, game:CFG.id, host:myId, status:'lobby', v:1, players:{[myId]:{name:nick,joined:Date.now(),av:pfGet().av}}, opts:CFG.defaultOpts?CFG.defaultOpts():{}};
     try{ room=code; await startHost(code,data); lsSet(storeKey(),JSON.stringify(data)); lsSet('gm_hostof_'+CFG.id,code); return enterRoom(code); }
     catch(e){ room=null; if(e.type!=='unavailable-id') return renderHome('방 만들기 실패: 인터넷 연결을 확인해 주세요 ('+(e.type||e.message)+')'); }
   }
@@ -169,7 +173,7 @@ async function joinRoom(code){
   if(!d.players?.[myId]){
     if(d.status!=='lobby') return renderHome('이미 시작한 게임이에요.');
     if(Object.keys(d.players||{}).length>=CFG.max) return renderHome(`방이 꽉 찼어요 (최대 ${CFG.max}명).`);
-    try{ await db.doc().update({players:{[myId]:{name:nick,joined:Date.now()}}}); }catch(e){ return renderHome('참가 실패: '+e.message); }
+    try{ await db.doc().update({players:{[myId]:{name:nick,joined:Date.now(),av:pfGet().av}}}); }catch(e){ return renderHome('참가 실패: '+e.message); }
   }
   enterRoom(code);
 }
@@ -197,7 +201,7 @@ function renderLobby(){
       <div class="row"><button class="btn sec" id="cp" style="margin:0">코드 복사</button><button class="btn" id="cl" style="margin:0">초대 링크 복사</button></div>
     </div>
     <div class="card-box"><b>참가자 ${ids.length}/${CFG.max}</b> <span class="tiny net">${esc(netState)}</span>
-      <div class="plist">${ids.map((id,i)=>`<div style="--pc:${PCOL[i%PCOL.length]}"><span>${esc(G.players[id].name)}${id===myId?' (나)':''}</span><span class="pill">${id===G.host?'방장':'대기'}</span></div>`).join('')}</div>
+      <div class="plist">${ids.map((id,i)=>`<div style="--pc:${PCOL[i%PCOL.length]}"><span class="who-n">${pfAv(G.players[id].av,28,PCOL[i%PCOL.length])}${esc(G.players[id].name)}${id===myId?' (나)':''}</span><span class="pill">${id===G.host?'방장':'대기'}</span></div>`).join('')}</div>
       ${CFG.lobbyOpts?CFG.lobbyOpts(G,host):''}
       <div class="muted" style="margin-top:8px">🎲 차례 순서는 시작할 때 랜덤으로 정해져요.</div>
       ${host?`<button class="btn" id="st" ${ids.length<CFG.min?'disabled':''}>게임 시작</button>
@@ -255,7 +259,7 @@ async function restartToLobby(){
 }
 function showOrder(){
   const el=document.createElement('div'); el.className='order-pop';
-  el.innerHTML=`<div class="op-in"><div class="op-t">🎲 순서 결정!</div>${G.order.map((id,i)=>`<div class="op-r" style="--pc:${pcol(id)};animation-delay:${.35+i*.35}s"><b>${i+1}</b> ${esc(nameOf(id))}${id===myId?' (나)':''}</div>`).join('')}<div class="tiny" style="margin-top:8px">탭하면 닫혀요</div></div>`;
+  el.innerHTML=`<div class="op-in"><div class="op-t">🎲 순서 결정!</div>${G.order.map((id,i)=>`<div class="op-r" style="--pc:${pcol(id)};animation-delay:${.35+i*.35}s"><b>${i+1}</b> ${whoHTML(id,28)}</div>`).join('')}<div class="tiny" style="margin-top:8px">탭하면 닫혀요</div></div>`;
   el.onclick=()=>el.remove(); document.body.appendChild(el);
   setTimeout(()=>el.remove(),1600+G.order.length*350);
 }
@@ -273,8 +277,8 @@ function openMenu(extra=''){
   $('#m-rst')&&($('#m-rst').onclick=()=>{ closeModal(); restartToLobby(); });
 }
 function endBoxHTML(rows){
-  return `<div class="card-box"><div style="font-size:22px;font-weight:800;color:var(--accent);text-align:center">🏆 ${esc(nameOf(rows[0].id))} 우승!</div>
-    ${rows.map((r,i)=>`<div class="row" style="justify-content:space-between;margin-top:6px"><span style="color:${pcol(r.id)}">${i+1}. ${esc(nameOf(r.id))}${r.id===myId?' (나)':''}</span><span class="tiny">${esc(r.txt)}</span></div>`).join('')}
+  return `<div class="card-box"><div style="font-size:22px;font-weight:800;color:var(--accent);text-align:center">🏆 ${pfAv(G.players?.[rows[0].id]?.av,40,pcol(rows[0].id))}${esc(nameOf(rows[0].id))} 우승!</div>
+    ${rows.map((r,i)=>`<div class="row" style="justify-content:space-between;margin-top:6px"><span style="color:${pcol(r.id)}">${i+1}. ${whoHTML(r.id,24)}</span><span class="tiny">${esc(r.txt)}</span></div>`).join('')}
     ${G.host===myId?'<button class="btn" id="again">같은 멤버로 다시 하기</button>':'<div class="muted" style="margin-top:8px">방장이 다시 시작할 수 있어요.</div>'}
     <a class="btn sec" href="./" style="text-align:center;text-decoration:none">게임 목록으로</a></div>`;
 }

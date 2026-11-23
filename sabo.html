@@ -61,6 +61,7 @@ body{background:radial-gradient(ellipse at top,#3a2a1c 0%,#16110d 65%)}
 <body>
 <div class="wrap" id="app"></div>
 <div id="panel"></div><div id="modal"></div><div id="toast"></div><div id="banner"></div>
+<script src="profile.js"></script>
 <script src="common.js"></script>
 <script>
 // ===================== 카드 데이터 =====================
@@ -248,7 +249,7 @@ function render(prev){
     const b=G.broken[id]||{}; const tl=Object.keys(TOOLS).map(t=>b[t]?`<span title="${TOOLS[t].n} 고장" style="filter:none">${TOOLS[t].ic}❌</span>`:'').join('');
     const isT=tgtPlayers.includes(id);
     return `<div class="chip2 ${id===cur&&G.phase==='play'&&G.status==='playing'?'cur':''} ${isT?'tgt':''}" data-pid="${id}" style="--pc:${pcol(id)}">
-      <b>${esc(nameOf(id))}${id===myId?' (나)':''}</b><span class="tiny">카드 ${(G.hands[id]||[]).length} · ⭐${G.score[id]}${G.phase!=='play'?' · '+(G.roles[id]==='s'?'😈':'⛏️'):''}</span><span class="tl">${tl||'<span class="tiny">장비 정상</span>'}</span></div>`;
+      <b class="who-n">${avHTML(id,20)}${esc(nameOf(id))}${id===myId?' (나)':''}</b><span class="tiny">카드 ${(G.hands[id]||[]).length} · ⭐${G.score[id]}${G.phase!=='play'?' · '+(G.roles[id]==='s'?'😈':'⛏️'):''}</span><span class="tl">${tl||'<span class="tiny">장비 정상</span>'}</span></div>`;
   }).join('');
   const role=G.roles[myId];
   let mid='';
